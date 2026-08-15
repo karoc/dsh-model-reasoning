@@ -1,0 +1,52 @@
+/** Copy dictionaries for the Model reasoning settings section. */
+
+/** English strings (the key-set source of truth for this pair). */
+export const en = {
+  nav: 'Model reasoning',
+  title: 'Model reasoning',
+  intro: 'Set per-model thinking levels (reasoning efforts) for third-party (pi-ai) providers. Values are written to llm-pi-ai and picked up by the model picker.',
+  readOnly: 'The settings document is read-only in this deployment.',
+  conflict: 'Someone else changed these settings while this page was open. Reopen it to edit the current values.',
+  routeLabel: 'Provider route',
+  routeUnset: 'Choose a provider…',
+  modelLabel: 'Model',
+  modelUnset: 'Choose a model…',
+  routeDefault: 'Route default thinking level',
+  routeDefaultUnset: 'Provider default (unset)',
+  modelEfforts: 'Model thinking levels',
+  modeInherit: 'Inherit (no override — keep whatever is already declared)',
+  modeOff: 'Non-reasoning (reasoningEfforts: false)',
+  modeOn: 'Reasoning — select supported levels:',
+  wireTitle: 'Wire spelling per level (customize what each level sends, e.g. max → ultra)',
+  offEmpty: 'off sends nothing',
+  needLevel: 'At least one level beyond "off" must be selected.',
+  save: 'Save',
+  saved: 'Saved.',
+}
+
+/** The settings.models namespace key union. */
+export type ReasoningKey = keyof typeof en
+
+/** Chinese strings (same keys as {@link en}). */
+export const zh: { [Key in keyof typeof en]: string } = {
+  nav: '模型思考等级',
+  title: '模型思考等级',
+  intro: '为第三方（pi-ai）提供方的每个模型设置思考等级（推理强度）。写入 llm-pi-ai，模型选择器会自动识别。',
+  readOnly: '此部署中设置文档为只读。',
+  conflict: '页面打开期间有其他人修改了这些设置。请重新打开以编辑当前值。',
+  routeLabel: '提供方路由',
+  routeUnset: '选择提供方…',
+  modelLabel: '模型',
+  modelUnset: '选择模型…',
+  routeDefault: '路由默认思考等级',
+  routeDefaultUnset: '提供方默认（未设置）',
+  modelEfforts: '模型思考等级',
+  modeInherit: '继承（不覆盖——保留已有声明）',
+  modeOff: '不思考（reasoningEfforts: false）',
+  modeOn: '思考——选择支持的等级：',
+  wireTitle: '每个等级的线上拼写（自定义该等级发到上游的值，如 max → ultra）',
+  offEmpty: 'off 不发送值',
+  needLevel: '必须至少选择一个除 "off" 之外的等级。',
+  save: '保存',
+  saved: '已保存。',
+}
