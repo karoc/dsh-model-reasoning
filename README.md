@@ -1,5 +1,9 @@
 # dsh-model-reasoning
 
+[![npm version](https://img.shields.io/npm/v/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
+[![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
+[![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
+
 An **external** DeepSeek Harness web client plugin: a Settings page that configures
 **per-model thinking levels (reasoning efforts)** for third-party (pi-ai)
 providers. It writes the same `llm-pi-ai.providers.<route>.models[].reasoningEfforts`
@@ -43,26 +47,44 @@ a concurrent change is refused rather than silently overwritten.
 
 ## Install
 
-**Prerequisites:** Node.js ≥ 18 and [pnpm](https://pnpm.io). This is an
-installable DeepSeek Harness **bundle** — it must be installed with `dsh
-plugin`, not imported as a library.
+**Prerequisites:** a DeepSeek Harness install with the `dsh` CLI, plus [pnpm](https://pnpm.io) (the `dsh plugin` command runs pnpm under the hood). This is an installable **bundle** — it is loaded by `dsh`, not imported as a library.
 
-Publish this package (npm) or host it on a git repo, then:
+### From npm (recommended)
+
+The package is published to npm as `dsh-model-reasoning`:
 
 ```sh
-# From a git host (source fetch — the `prepare` script builds the bundle):
-dsh plugin --profile web add github:karoc/dsh-model-reasoning#<sha>
-
-# Or prebuilt: publish to npm / ship a tarball, then:
 dsh plugin --profile web add dsh-model-reasoning
 ```
 
-A git install runs the package's `prepare` script (pnpm ≥ 10 requires
-allowlisting it once — copy the exact package key pnpm prints into the profile's
-`pnpm-workspace.yaml` under `allowBuilds`, then re-run `add`; see
-`docs/user/develop/basic/publish.md` in the DSH repo).
+This installs the prebuilt bundle and appends it to the `web` profile. Then **restart `dsh web`** and open **Settings → 模型思考等级 / Model reasoning**.
 
-Then restart `dsh web` and open **Settings → 模型思考等级 / Model reasoning**.
+### From git
+
+```sh
+dsh plugin --profile web add github:karoc/dsh-model-reasoning#<sha>
+```
+
+A git install runs the package's `prepare` script to build the bundle. pnpm ≥ 10 requires allowlisting that build once — copy the exact package key pnpm prints into the profile's `pnpm-workspace.yaml` under `allowBuilds`, then re-run `add` (see `docs/user/develop/basic/publish.md` in the DSH repo).
+
+### Updating
+
+Bump to the newest release with pnpm update (or re-add to pick up a newer git ref):
+
+```sh
+dsh plugin --profile web update dsh-model-reasoning
+# or, if the dependency spec is pinned: dsh plugin --profile web add dsh-model-reasoning
+```
+
+Then **restart `dsh web`** so the new client bundle loads.
+
+### Removing
+
+```sh
+dsh plugin --profile web remove dsh-model-reasoning
+```
+
+This removes both the dependency and its bundle layer from the `web` profile. Restart `dsh web` for the section to disappear.
 
 ## Layout
 
