@@ -49,6 +49,17 @@ export const REASONING_STYLES = `
 .mr-wire-off { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .mr-wire-off input[type='checkbox'] { accent-color: var(--dsw-alias-button-primary-fill); }
 .mr-wire-input { width: 200px; }
+/* Empty state: dashed placeholder box matching the built-in Models form's
+   empty catalog (modelEmpty: dashed border-l3, centered, tertiary label). */
+.mr-empty {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 28px 20px; text-align: center;
+  border: 1px dashed var(--dsw-alias-border-l3); border-radius: 8px;
+}
+.mr-empty-icon { color: var(--dsw-alias-label-tertiary); margin-bottom: 4px; }
+.mr-empty-title { margin: 0; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary); }
+.mr-empty-body { margin: 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); max-width: 320px; }
+.mr-empty-hint { margin: 4px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); }
 .mr-hint { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .mr-error { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-error-primary); }
 .mr-success { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-success-primary); }

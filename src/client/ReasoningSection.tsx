@@ -19,7 +19,7 @@ import type { ReactNode } from 'react'
 import type {
   IApiClient, SettingsPathOpView, SettingsScope, SettingsScopeSnapshot,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, IconChevronDownOutline14, Input, Menu, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { en } from './locales.ts'
 
 /** The pi-ai section shapes this page reads and writes (schema-loose on purpose). */
@@ -239,6 +239,14 @@ function ReasoningSectionLoaded(props: {
     && JSON.stringify(activeModel.reasoningEfforts) !== JSON.stringify(nextDict)
   const canSave = !busy && (mode !== 'on' || onHasLevel) && (routeDefaultDirty || modelDirty)
 
+  // Empty-state bookkeeping: while the namespace loads, avoid flashing an empty
+  // dropdown; once ready, a page with no editable routes gets a friendly prompt
+  // instead of a dead selector.
+  const scopeLoading = raw?.status === 'loading'
+  const scopeUnavailable = raw?.status === 'unavailable'
+  const showEmpty = raw?.status === 'ready' && editable.length === 0
+  const hasAnyProviders = routes.length > 0
+
   const save = async (): Promise<void> => {
     if (api === undefined || activeRouteKey === undefined) return
     setBusy(true)
@@ -299,8 +307,34 @@ function ReasoningSectionLoaded(props: {
       <p className="mr-intro">{t('intro')}</p>
       {raw?.writable === false ? <p className="mr-hint">{t('readOnly')}</p> : null}
 
-      <div className="mr-field">
-        <label className="mr-label">{t('routeLabel')}</label>
+      {scopeUnavailable
+        ? <p className="mr-hint">{t('unavailable')}</p>
+        : scopeLoading
+          ? <p className="mr-hint">{t('loading')}</p>
+          : showEmpty
+            ? (
+              <div className="mr-empty" role="status">
+                <IconThinkOutline16 className="mr-empty-icon" size={16} />
+                {hasAnyProviders
+                  ? (
+                    <>
+                      <p className="mr-empty-title">{t('emptyNoEditableTitle')}</p>
+                      <p className="mr-empty-body">{t('emptyNoEditableBody')}</p>
+                    </>
+                  )
+                  : (
+                    <>
+                      <p className="mr-empty-title">{t('emptyNoProvidersTitle')}</p>
+                      <p className="mr-empty-body">{t('emptyNoProvidersBody')}</p>
+                      <p className="mr-empty-hint">{t('emptyNoProvidersAction')}</p>
+                    </>
+                  )}
+              </div>
+            )
+            : (
+              <>
+              <div className="mr-field">
+                <label className="mr-label">{t('routeLabel')}</label>
         <Selector
           value={routeKey ?? ''}
           placeholder={t('routeUnset')}
@@ -455,6 +489,8 @@ function ReasoningSectionLoaded(props: {
           {t('save')}
         </Button>
       </div>
+              </>
+            )}
     </div>
   )
 }
