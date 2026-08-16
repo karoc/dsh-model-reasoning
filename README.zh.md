@@ -88,6 +88,7 @@ src/client/locales.ts # 中英文文案
 ```sh
 pnpm install
 pnpm bundle          # 产出 lib/index.js + lib/client.js
+pnpm release:check   # 发布门禁：文档/变更日志/标签/工作区/构建/仓库 全部通过才可发布
 ```
 
 bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-*`）保持为外部依赖——它们在运行时从 loader 的模块表解析；其余全部内联。

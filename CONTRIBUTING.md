@@ -20,31 +20,59 @@ pnpm bundle       # emits lib/index.js + lib/client.js
   components (`Button`, `Menu`, `Pill`, `Input`, …) and `--dsw-alias-*` tokens.
 - Copy is bilingual: add/keep both `en` and `zh` entries in `locales.ts`.
 
-## Release checklist (mandatory)
+## What every release must contain
 
-Every release MUST complete all of these **before** bumping the version and
-publishing. Missing documentation is treated as a release defect:
+A release is ONE coherent change — code and its documentation land together.
+Splitting a feature's docs into a later "docs release" is a defect. Every release
+MUST include, in the SAME release:
 
-1. **Code change** — implement the feature/fix, build it (`pnpm bundle`), and
-   verify the client bundle is served correctly.
-2. **README — English** (`README.md`): describe any new user-visible behavior
-   (features, settings, limitations).
-3. **README — Chinese** (`README.zh.md`): mirror the same changes. The two
-   files must stay in sync.
-4. **CHANGELOG.md**: move/add the entry under the new version, following
-   Keep a Changelog + SemVer. The `[Unreleased]` section is for pending work.
-5. **Commit + tag + push**:
-   ```sh
-   git add -A
-   git commit -m "chore: bump to <version>"
-   git tag v<version>
-   git push origin main
-   git push origin v<version>
-   ```
-6. **Publish to npm** (requires npm auth + OTP):
-   ```sh
-   npm publish
-   ```
+1. **Code change** — implemented, and `pnpm bundle` succeeds (`lib/` produced).
+2. **README.md (English)** — describes the new user-visible behavior.
+3. **README.zh.md (Chinese)** — mirrors the same sections (same `##` section
+   set; the release gate verifies the section counts match).
+4. **CHANGELOG.md** — an entry under `## [<version>]` for this release, as the
+   latest released entry (Keep a Changelog + SemVer).
+5. **Version** — `package.json` version equals the CHANGELOG entry and the git
+   tag `v<version>` on HEAD.
+6. **Git** — working tree clean (everything committed), tag pushed.
+7. **Not re-published** — the version must not already exist on npm.
+
+## Verification — the release gate
+
+The gate is **automated and blocking**: `scripts/release-check.mjs` checks every
+item above and exits non-zero if any is missing. It runs:
+
+- standalone: `pnpm release:check`, and
+- **automatically before publish**: `prepublishOnly` runs it first, so
+  `npm publish` **cannot proceed until every item passes** ("缺一不可").
+
+It verifies: bilingual READMEs exist and have matching section counts,
+CHANGELOG has the current version as the latest entry, version matches
+`v<version>` tag on HEAD, working tree is clean, `lib/` is built, and the
+version is not already on npm.
+
+## Release steps
+
+```sh
+# 1. Make the change and its docs together:
+#    code + README.md + README.zh.md + CHANGELOG entry, in one working tree.
+
+# 2. Bump the version, commit, tag, push:
+git add -A
+git commit -m "chore: bump to <version>"
+git tag v<version>
+git push origin main
+git push origin v<version>
+
+# 3. The gate must pass (it also runs inside prepublishOnly):
+pnpm release:check
+
+# 4. Publish (npm auth + OTP):
+npm publish
+```
+
+If `npm publish` is ever attempted with a missing item, the gate fails loudly
+and the publish aborts — fix the item, then re-publish the NEW version.
 
 ## Versioning
 

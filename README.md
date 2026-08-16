@@ -116,6 +116,7 @@ src/client/locales.ts # en/zh copy
 ```sh
 pnpm install
 pnpm bundle          # emits lib/index.js + lib/client.js
+pnpm release:check   # release gate: docs/changelog/tag/tree/build/registry must all pass
 ```
 
 The bundle leaves the platform packages (`react`, `@deepseek-ai/cordis`,

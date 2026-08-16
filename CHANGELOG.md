@@ -7,10 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > **Process rule:** every released version MUST have a matching entry in this
 > file AND its user-visible behavior reflected in the README (both `README.md`
-> and `README.zh.md`). See [CONTRIBUTING.md](CONTRIBUTING.md) — a release without
-> synced documentation is a defect, not a release.
+> and `README.zh.md`) — all in the same release. The automated gate
+> `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
+> every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## [Unreleased]
+
+### Added
+
+- **Automated release gate** (`scripts/release-check.mjs`, `pnpm release:check`):
+  verifies bilingual READMEs, CHANGELOG entry, version/tag match, clean working
+  tree, build output, and un-published version — run by `prepublishOnly`, so
+  `npm publish` is blocked until every item passes.
+- `CONTRIBUTING.md` documents the mandatory release contents and the gate;
+  `CHANGELOG.md` and both READMEs reference it.
 
 ## [0.1.3] - 2026-08-15
 

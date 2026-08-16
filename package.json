@@ -40,7 +40,8 @@
   "scripts": {
     "bundle": "tsdown --config ./tsdown.config.ts",
     "prepare": "tsdown --config ./tsdown.config.ts",
-    "prepublishOnly": "tsdown --config ./tsdown.config.ts"
+    "release:check": "node scripts/release-check.mjs",
+    "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts"
   },
   "engines": {
     "node": ">=18"
