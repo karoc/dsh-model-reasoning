@@ -2,32 +2,65 @@
 /**
  * Release gate: verifies every mandatory item of a release before it can be
  * published. Runs standalone (`pnpm release:check`) and automatically as part
- * of `prepublishOnly`, so `npm publish` is BLOCKED until the checklist passes.
+ * of `prepack` and `prepublishOnly`, so both `npm publish` AND `npm pack`
+ * (which is the bypass for publishing a pre-packed tarball) are BLOCKED until
+ * the checklist passes.
  *
  * Mandatory items checked:
- *   1. README.md and README.zh.md exist
- *   2. README.md and README.zh.md have the same `##` section headings (bilingual sync)
- *   3. CHANGELOG.md has an entry for the current version, as the latest released entry
+ *   1. README.md and README.zh.md exist and are non-trivial
+ *   2. README.md and README.zh.md have the same number of `##` and `###`
+ *      sections (bilingual structural sync)
+ *   3. CHANGELOG.md has a NON-EMPTY entry for the current version, as the
+ *      latest released entry
  *   4. package.json version == CHANGELOG latest entry version
  *   5. git tag `v<version>` exists and points at HEAD
  *   6. git working tree is clean (everything committed)
- *   7. lib/client.js exists (build output present)
+ *   7. lib/ is present AND fresh (no src/ file newer than the built output)
  *   8. version is not already published on npm (best effort)
+ *
+ * Known, documented limitations:
+ *   - Section-count sync cannot verify translated CONTENT inside sections;
+ *     human review still owns wording parity.
+ *   - `npm publish --ignore-scripts` skips this gate entirely (explicit user
+ *     override); the `npm pack` route is gated via `prepack`, but tarballs
+ *     packed elsewhere are not. See CONTRIBUTING.md.
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-import { dirname, join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const read = (file) => readFileSync(join(root, file), 'utf8')
+const run = (cmd) => execSync(cmd, { cwd: root, encoding: 'utf8', timeout: 15000 }).trim()
 const failures = []
 const fail = (message) => failures.push(message)
 
-/** The `## ` headings of a markdown file (comparison strips order-insensitive? no — order matters for parity). */
+/** The `## ` headings of a markdown file. */
 function headings(file) {
   if (!existsSync(join(root, file))) return []
   return (read(file).match(/^## .*$/gm) ?? []).map((h) => h.replace(/^## /, '').trim())
+}
+
+/** The `### ` headings of a markdown file (subsection parity check). */
+function subheadings(file) {
+  if (!existsSync(join(root, file))) return []
+  return (read(file).match(/^### .*$/gm) ?? []).map((h) => h.replace(/^### /, '').trim())
+}
+
+/** Newest modification time (ms) under a directory, walking recursively. */
+function newestMtime(dir) {
+  let newest = 0
+  const walk = (current) => {
+    for (const name of readdirSync(current)) {
+      const full = join(current, name)
+      const st = statSync(full)
+      if (st.isDirectory()) walk(full)
+      else if (st.mtimeMs > newest) newest = st.mtimeMs
+    }
+  }
+  walk(dir)
+  return newest
 }
 
 let version
@@ -35,14 +68,16 @@ try {
   version = JSON.parse(read('package.json')).version
 } catch (error) {
   fail(`package.json unreadable: ${error.message}`)
+}
+if (typeof version !== 'string' || !/^\d+\.\d+\.\d+$/.test(version ?? '')) {
+  fail(`package.json version "${String(version)}" is not a valid semver (x.y.z)`)
   process.exit(1)
 }
 console.log(`release-check: package version ${version}`)
 
-// 1. + 2. bilingual READMEs present and section-synced.
-// Headings are translated (English vs 简体中文), so equality is by SECTION
-// COUNT: a release that adds/removes a `##` section in one language but not
-// the other is a drift that must be fixed before publishing.
+// 1. + 2. bilingual READMEs present and structurally synced.
+// Headings are translated, so equality is by SECTION COUNT: a release that
+// adds/removes a `##`/`###` section in one language but not the other is drift.
 for (const file of ['README.md', 'README.zh.md']) {
   if (!existsSync(join(root, file))) fail(`${file} is missing — write/update it for this release`)
 }
@@ -51,48 +86,84 @@ const zhHeadings = headings('README.zh.md')
 if (enHeadings.length !== zhHeadings.length) {
   fail(
     `bilingual READMEs are out of sync: README.md has ${enHeadings.length} sections, `
-    + `README.zh.md has ${zhHeadings.length} — add/remove the same section in both files`
+    + `README.zh.md has ${zhHeadings.length} — add/remove the same section in both files`,
+  )
+}
+const enSub = subheadings('README.md')
+const zhSub = subheadings('README.zh.md')
+if (enSub.length !== zhSub.length) {
+  fail(
+    `bilingual READMEs are out of sync: README.md has ${enSub.length} subsections, `
+    + `README.zh.md has ${zhSub.length} — add/remove the same subsection in both files`,
   )
 }
 
-// 3. + 4. CHANGELOG entry for this version, as the latest released entry
+// 3. + 4. CHANGELOG entry for this version, as the latest released entry,
+//    and non-empty (a heading with no content describes nothing).
 let changelog
 try {
   changelog = read('CHANGELOG.md')
 } catch {
   fail('CHANGELOG.md is missing — create it with a [Unreleased] section')
 }
-const escaped = version.replace(/\./g, '\\.')
-if (!new RegExp(`^## \\[${escaped}\\]`, 'm').test(changelog)) {
+const sections = changelog.split(/^## /m).slice(1)
+const entry = sections.find((s) => s.startsWith(`[${version}]`))
+if (!entry) {
   fail(`CHANGELOG.md has no entry for [${version}] — add one`)
+} else {
+  const body = entry.slice(entry.indexOf('\n') + 1).trim()
+  if (!/[-*]|^###/m.test(body)) fail(`CHANGELOG.md entry for [${version}] is empty — describe the change`)
 }
-const latestReleased = changelog.match(/^## \[(\d+\.\d+\.\d+)\]/m)
-if (latestReleased && latestReleased[1] !== version) {
-  fail(`CHANGELOG.md latest released entry is [${latestReleased[1]}], expected [${version}]`)
+const releasedFirst = sections.map((s) => s.match(/^\[(\d+\.\d+\.\d+)\]/)?.[1]).find(Boolean)
+if (releasedFirst && releasedFirst !== version) {
+  fail(`CHANGELOG.md latest released entry is [${releasedFirst}], expected [${version}]`)
 }
 
-// 5. tag v<version> on HEAD
+// 5. git tag v<version> exists and points at HEAD.
 const tag = `v${version}`
+let head
 try {
-  const describe = execSync('git describe --tags --exact-match HEAD', { cwd: root, encoding: 'utf8' }).trim()
-  if (describe !== tag) fail(`HEAD is tagged ${describe}, expected ${tag} — tag the release commit`)
+  head = run('git rev-parse HEAD')
 } catch {
-  fail(`no git tag ${tag} on HEAD — commit and tag the release first`)
+  fail('not a git repository — release must be committed and tagged')
+}
+let tagHead
+try {
+  tagHead = run(`git rev-parse -q --verify refs/tags/${tag}^{commit}`)
+} catch {
+  tagHead = ''
+}
+if (tagHead === '') {
+  fail(`git tag ${tag} does not exist — commit and tag the release first`)
+} else if (tagHead !== head) {
+  fail(`git tag ${tag} does not point at HEAD — tag the release commit`)
 }
 
-// 6. clean working tree
-const status = execSync('git status --porcelain', { cwd: root, encoding: 'utf8' }).trim()
+// 6. clean working tree.
+const status = run('git status --porcelain')
 if (status.length > 0) fail(`working tree is not clean — commit everything first:\n${status}`)
 
-// 7. build output present
-if (!existsSync(join(root, 'lib/client.js'))) fail('lib/client.js is missing — run pnpm bundle first')
+// 7. lib/ present AND fresh (no src/ file newer than the built output).
+let stale = []
+for (const artifact of ['lib/client.js', 'lib/index.js']) {
+  if (!existsSync(join(root, artifact))) fail(`${artifact} is missing — run pnpm bundle first`)
+}
+if (existsSync(join(root, 'src'))) {
+  const srcNewest = newestMtime(join(root, 'src'))
+  for (const artifact of ['lib/client.js', 'lib/index.js']) {
+    const st = statSync(join(root, artifact))
+    if (srcNewest > st.mtimeMs + 1000) {
+      stale.push(relative(root, join(root, artifact)))
+    }
+  }
+}
+if (stale.length > 0) {
+  fail(`build output is stale (src/ newer than ${stale.join(', ')}) — run pnpm bundle first`)
+}
 
-// 8. not already published (best effort; offline or 404 means not published)
+// 8. not already published (best effort; offline or 404 means not published).
 try {
-  const published = execSync(
-    `npm view ${JSON.stringify('dsh-model-reasoning')}@${version} version`,
-    { cwd: root, encoding: 'utf8' },
-  ).trim()
+  const published = run(`npm view ${JSON.stringify('dsh-model-reasoning')}@${version} version`)
   if (published.length > 0) fail(`version ${version} is already published on npm (${published}) — bump the version`)
 } catch {
   // E404 or network failure: treated as "not published yet"

@@ -42,14 +42,26 @@ MUST include, in the SAME release:
 The gate is **automated and blocking**: `scripts/release-check.mjs` checks every
 item above and exits non-zero if any is missing. It runs:
 
-- standalone: `pnpm release:check`, and
+- standalone: `pnpm release:check`,
+- before packing: `prepack` (closes the `npm pack` + publish-tarball route), and
 - **automatically before publish**: `prepublishOnly` runs it first, so
   `npm publish` **cannot proceed until every item passes** ("缺一不可").
 
-It verifies: bilingual READMEs exist and have matching section counts,
-CHANGELOG has the current version as the latest entry, version matches
-`v<version>` tag on HEAD, working tree is clean, `lib/` is built, and the
-version is not already on npm.
+It verifies: bilingual READMEs exist with matching section/subsection counts,
+CHANGELOG has a non-empty current-version entry as the latest, version matches
+the `v<version>` tag on HEAD, working tree is clean, `lib/` is built and fresh
+(no `src/` file newer than the output), and the version is not already on npm.
+
+**Known limitations (documented):**
+
+- **`npm publish --ignore-scripts` bypasses the gate.** This is an explicit
+  user override of all lifecycle scripts; it cannot be prevented mechanically.
+  Treat any release published that way as violating the process.
+- **Content parity within sections is not mechanically verifiable.** The gate
+  checks structural parity (section/subsection counts); translated wording must
+  still be reviewed by hand.
+- **Offline runs cannot confirm "not re-published".** The registry check is
+  best-effort; if the registry is unreachable it is skipped.
 
 ## Release steps
 
@@ -64,15 +76,18 @@ git tag v<version>
 git push origin main
 git push origin v<version>
 
-# 3. The gate must pass (it also runs inside prepublishOnly):
+# 3. The gate must pass (it also runs inside prepack/prepublishOnly):
 pnpm release:check
 
 # 4. Publish (npm auth + OTP):
 npm publish
+
+# 5. Verify the release landed (mandatory):
+npm view dsh-model-reasoning dist-tags   # latest must equal <version>
 ```
 
 If `npm publish` is ever attempted with a missing item, the gate fails loudly
-and the publish aborts — fix the item, then re-publish the NEW version.
+and the publish aborts — fix the item, then release the NEW version.
 
 ## Versioning
 

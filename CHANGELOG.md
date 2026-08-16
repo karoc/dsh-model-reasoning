@@ -16,11 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Automated release gate** (`scripts/release-check.mjs`, `pnpm release:check`):
-  verifies bilingual READMEs, CHANGELOG entry, version/tag match, clean working
-  tree, build output, and un-published version — run by `prepublishOnly`, so
-  `npm publish` is blocked until every item passes.
-- `CONTRIBUTING.md` documents the mandatory release contents and the gate;
-  `CHANGELOG.md` and both READMEs reference it.
+  verifies bilingual README section/subsection parity, non-empty CHANGELOG
+  entry, version/tag match on HEAD, clean working tree, fresh build output
+  (`src/` not newer than `lib/`), and un-published version. Runs in `prepack`
+  and `prepublishOnly`, so `npm publish` / `npm pack` are blocked until every
+  item passes.
+- `CONTRIBUTING.md` documents the mandatory release contents, the gate, its
+  documented bypasses (`--ignore-scripts`, content parity), and the
+  post-publish verification step.
 
 ## [0.1.3] - 2026-08-15
 
