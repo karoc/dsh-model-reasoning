@@ -54,14 +54,18 @@ the `v<version>` tag on HEAD, working tree is clean, `lib/` is built and fresh
 
 **Known limitations (documented):**
 
-- **`npm publish --ignore-scripts` bypasses the gate.** This is an explicit
-  user override of all lifecycle scripts; it cannot be prevented mechanically.
-  Treat any release published that way as violating the process.
+- **`npm publish --ignore-scripts` bypasses the gate AND the post-publish
+  verification.** This is an explicit user override of all lifecycle scripts;
+  it cannot be prevented mechanically. Treat any release published that way as
+  violating the process.
 - **Content parity within sections is not mechanically verifiable.** The gate
   checks structural parity (section/subsection counts); translated wording must
   still be reviewed by hand.
 - **Offline runs cannot confirm "not re-published".** The registry check is
   best-effort; if the registry is unreachable it is skipped.
+- **`postpublish` verifies after the fact, it cannot prevent.** It runs only
+  after the package is already on npm; a finding there means the release is
+  live but inconsistent — never re-publish the same version to "fix" it.
 
 ## Release steps
 
@@ -82,7 +86,8 @@ pnpm release:check
 # 4. Publish (npm auth + OTP):
 npm publish
 
-# 5. Verify the release landed (mandatory):
+# 5. postpublish verifies automatically (dist-tags.latest + tarball contents).
+#    A manual check is only needed if you published with --ignore-scripts:
 npm view dsh-model-reasoning dist-tags   # latest must equal <version>
 ```
 

@@ -42,7 +42,8 @@
     "prepare": "tsdown --config ./tsdown.config.ts",
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs",
-    "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts"
+    "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",
+    "postpublish": "node scripts/post-publish-check.mjs"
   },
   "engines": {
     "node": ">=18"

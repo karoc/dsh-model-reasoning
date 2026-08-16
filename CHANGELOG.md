@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CONTRIBUTING.md` documents the mandatory release contents, the gate, its
   documented bypasses (`--ignore-scripts`, content parity), and the
   post-publish verification step.
+- **Post-publish verification** (`scripts/post-publish-check.mjs`, `postpublish`):
+  after the package is uploaded, confirms `dist-tags.latest` matches the
+  released version and the published tarball contains every expected file;
+  reports loud, unambiguous findings if not (it cannot prevent a bad publish —
+  it confirms and alarms afterwards).
 
 ## [0.1.3] - 2026-08-15
 

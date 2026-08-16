@@ -117,6 +117,7 @@ src/client/locales.ts # en/zh copy
 pnpm install
 pnpm bundle          # emits lib/index.js + lib/client.js
 pnpm release:check   # release gate: docs/changelog/tag/tree/build/registry must all pass
+pnpm publish         # runs the gate (prepack/prepublishOnly), then postpublish verifies the live release
 ```
 
 The bundle leaves the platform packages (`react`, `@deepseek-ai/cordis`,
