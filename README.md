@@ -44,6 +44,15 @@ model's thinking vocabulary **without waiting for an adapter update**.
 > write and ignored at request time. "Ultra" is expressed by remapping an
 > existing level's wire spelling (`max: ultra`), not by adding an `ultra` key.
 
+### Empty state
+
+When no third-party provider is configured yet, the page shows a friendly
+placeholder card (instead of a dead empty dropdown) prompting you to add a
+custom provider first, pointing at **Settings → Models → Add a custom
+provider**. It distinguishes "no providers at all" from "providers without a
+custom models list", and shows loading / unavailable hints while the settings
+document loads.
+
 The write path uses the official `settings.mutate` RPC with revision fencing, so
 a concurrent change is refused rather than silently overwritten.
 
@@ -132,4 +141,9 @@ module table; everything else is inlined.
 ## License
 
 [MIT](LICENSE)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) (development + release checklist) and
+[CHANGELOG.md](CHANGELOG.md) for version history.
 

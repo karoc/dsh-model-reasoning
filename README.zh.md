@@ -23,6 +23,10 @@
 
 > ⚠️ DSH **不支持**发明新的等级名。pi-ai 的 schema 把 `reasoningEfforts` 的键固定为上面的七个等级（`z.dict(..., z.union(levels))`），解析时也只读取这些键，所以裸写 `ultra:` 键会在写入时被拒绝、在请求时被忽略。「Ultra」应通过重映射已有等级的线上拼写（`max: ultra`）来表达，而不是新增 `ultra` 键。
 
+### 空状态
+
+尚未配置任何第三方提供方时，页面会显示一张友好的占位卡片（而不是一个空洞的下拉框），提示你先添加自定义提供方，并指向 **设置 → 模型 → 添加自定义提供方**。它区分「完全没有提供方」和「有提供方但没有自定义模型列表」两种情况，并在设置文档加载时显示加载中 / 不可用提示。
+
 写入路径使用官方的 `settings.mutate` RPC 并带 revision 冲突保护，并发修改会被拒绝而不是被静默覆盖。
 
 ## 安装
@@ -97,3 +101,7 @@ bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client
 ## License
 
 [MIT](LICENSE)
+
+## 参与贡献
+
+参见 [CONTRIBUTING.md](CONTRIBUTING.md)（开发与发布检查清单）和 [CHANGELOG.md](CHANGELOG.md)（版本历史）。
