@@ -301,9 +301,10 @@ function ReasoningSectionLoaded(props: {
     setSaved(true)
   }
 
-  /** Whether the "apply to all models" action is available. */
-  const canApplyAll = !busy && activeRouteKey !== undefined && models.length > 0
-    && (mode !== 'on' || onHasLevel)
+  /** Whether the "apply to all models" action is available. Requires a selected
+   * model (its declaration is what gets copied) plus a valid mode. */
+  const canApplyAll = !busy && activeRouteKey !== undefined && modelIndex !== undefined
+    && models.length > 0 && (mode !== 'on' || onHasLevel)
 
   /**
    * Apply the current model's reasoning declaration (inherit / false / levels +

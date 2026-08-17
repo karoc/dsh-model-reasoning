@@ -19,7 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Apply to all models**: an action next to Save copies the current model's
   thinking declaration (inherit / non-reasoning / levels + wire spellings) to
-  every model on the route at once.
+  every model on the route at once. It stays disabled until a model is
+  selected, so it never applies an uninitialized (default-inherit) state.
 - **Mode choices in a row with tooltips**: the three modes (inherit /
   non-reasoning / reasoning) now sit side by side; hover shows an explanation
   via the DSH `Tooltip` component (no native `title`).
