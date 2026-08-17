@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Model search filter**: a filter input above the model selector narrows a
+  long provider model list by name / id as you type. Purely display-level — it
+  keeps the stored declaration order and never touches the write path; a query
+  that no longer matches the selected model only hides it from the dropdown
+  while its editor panel below keeps working.
+
 ### Fixed
 
 - **Post-publish check now tolerates registry eventual consistency.** Right

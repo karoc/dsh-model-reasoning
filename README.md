@@ -34,7 +34,9 @@ The three mode choices sit side by side with hover explanations (tooltips), and
 an **Apply to all models** button copies the current model's thinking
 declaration (levels + wire spellings) to every model on the route at once.
 Empty states guide you when there is no provider yet, no editable provider, or
-a provider with no models.
+a provider with no models. A **model search filter** above the model selector
+narrows a long provider model list by name / id as you type — display-only, so
+the stored declaration order and the write path are never touched.
 
 ### Custom wire spelling (adapt to any upstream vocabulary)
 

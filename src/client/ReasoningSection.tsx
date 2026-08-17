@@ -175,6 +175,7 @@ function ReasoningSectionLoaded(props: {
 
   const [routeKey, setRouteKey] = useState<string | undefined>(undefined)
   const [modelIndex, setModelIndex] = useState<number | undefined>(undefined)
+  const [modelQuery, setModelQuery] = useState('')
   const [mode, setMode] = useState<EffortState['kind']>('inherit')
   const [levels, setLevels] = useState<ReadonlySet<ReasoningLevel>>(new Set(['high']))
   const [wire, setWire] = useState<Record<string, string>>({})
@@ -189,10 +190,23 @@ function ReasoningSectionLoaded(props: {
   const models = activeRoute?.[1]?.models ?? []
   const activeModel = modelIndex === undefined ? undefined : models[modelIndex]
   const activeModelId = activeModel?.id ?? ''
+  // Display-layer search filter for the model selector: matches against the
+  // name / id / ordinal, keeps the original declaration order, and never
+  // touches the stored `models` array or the write path. A filter that no
+  // longer covers the selected model just hides it from the dropdown (the
+  // editor panel for the still-selected model keeps working below).
+  const query = modelQuery.trim().toLowerCase()
+  const filteredModels = query === ''
+    ? models.map((model, index) => ({ model, index }))
+    : models
+        .map((model, index) => ({ model, index }))
+        .filter(({ model, index }) =>
+          `${model.name ?? ''} ${model.id ?? ''} ${String(index)}`.toLowerCase().includes(query))
 
   const pickRoute = (key: string): void => {
     setRouteKey(key)
     setModelIndex(undefined)
+    setModelQuery('')
     setSaved(false)
     setFailure(undefined)
     // Seed the route-level default selector from the current value.
@@ -402,13 +416,24 @@ function ReasoningSectionLoaded(props: {
           : (
             <div className="mr-field">
               <label className="mr-label">{t('modelLabel')}</label>
-              <Selector
-                value={modelIndex === undefined ? '' : String(modelIndex)}
-                placeholder={t('modelUnset')}
+              <Input
+                className="mr-search"
+                value={modelQuery}
+                placeholder={t('modelSearchPlaceholder')}
                 disabled={!raw?.writable}
-                options={models.map((model, index) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
-                onChange={(id) => { pickModel(Number(id)) }}
+                onChange={(e) => { setModelQuery(e.target.value) }}
               />
+              {filteredModels.length === 0
+                ? <p className="mr-hint">{t('modelSearchEmpty')}</p>
+                : (
+                  <Selector
+                    value={modelIndex === undefined ? '' : String(modelIndex)}
+                    placeholder={t('modelUnset')}
+                    disabled={!raw?.writable}
+                    options={filteredModels.map(({ model, index }) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
+                    onChange={(id) => { pickModel(Number(id)) }}
+                  />
+                )}
             </div>
           )}
 
