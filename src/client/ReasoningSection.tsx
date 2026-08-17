@@ -19,7 +19,7 @@ import type { ReactNode } from 'react'
 import type {
   IApiClient, SettingsPathOpView, SettingsScope, SettingsScopeSnapshot,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { en } from './locales.ts'
 
 /** The pi-ai section shapes this page reads and writes (schema-loose on purpose). */
@@ -301,6 +301,51 @@ function ReasoningSectionLoaded(props: {
     setSaved(true)
   }
 
+  /** Whether the "apply to all models" action is available. */
+  const canApplyAll = !busy && activeRouteKey !== undefined && models.length > 0
+    && (mode !== 'on' || onHasLevel)
+
+  /**
+   * Apply the current model's reasoning declaration (inherit / false / levels +
+   * wire spellings) to EVERY model on the route, writing the whole models array
+   * (path ops cannot address array indices).
+   */
+  const applyToAll = async (): Promise<void> => {
+    if (api === undefined || activeRouteKey === undefined) return
+    setBusy(true)
+    setFailure(undefined)
+    const next = mode === 'inherit'
+      ? undefined
+      : mode === 'off'
+        ? false
+        : wireOf(levels, wire, offEmpty)
+    const newModels = models.map((model) => {
+      const entry = { ...model }
+      if (next === undefined) {
+        const { reasoningEfforts: _dropped, ...rest } = entry
+        return rest
+      }
+      return { ...entry, reasoningEfforts: next }
+    })
+    if (JSON.stringify(models) === JSON.stringify(newModels)) {
+      setBusy(false)
+      return
+    }
+    const response = await api.settings.mutate({
+      ns: 'llm-pi-ai',
+      ops: [{ op: 'set', path: ['providers', activeRouteKey, 'models'], value: newModels }],
+      ...(raw?.revision === undefined ? {} : { expectedRevision: raw.revision }),
+    })
+    setBusy(false)
+    if (!response.result.ok) {
+      setFailure(response.result.error.code === 'settings-conflict'
+        ? t('conflict')
+        : response.result.error.message)
+      return
+    }
+    setSaved(true)
+  }
+
   return (
     <div className="mr-stack" style={{ padding: '4px 0' }}>
       <h2 className="mr-title">{t('title')}</h2>
@@ -346,18 +391,25 @@ function ReasoningSectionLoaded(props: {
 
       {activeRouteKey === undefined
         ? null
-        : (
-          <div className="mr-field">
-            <label className="mr-label">{t('modelLabel')}</label>
-            <Selector
-              value={modelIndex === undefined ? '' : String(modelIndex)}
-              placeholder={t('modelUnset')}
-              disabled={!raw?.writable}
-              options={models.map((model, index) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
-              onChange={(id) => { pickModel(Number(id)) }}
-            />
-          </div>
-        )}
+        : models.length === 0
+          ? (
+            <div className="mr-empty mr-model-empty" role="status">
+              <p className="mr-empty-title">{t('emptyModelsTitle')}</p>
+              <p className="mr-empty-body">{t('emptyModelsBody')}</p>
+            </div>
+          )
+          : (
+            <div className="mr-field">
+              <label className="mr-label">{t('modelLabel')}</label>
+              <Selector
+                value={modelIndex === undefined ? '' : String(modelIndex)}
+                placeholder={t('modelUnset')}
+                disabled={!raw?.writable}
+                options={models.map((model, index) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
+                onChange={(id) => { pickModel(Number(id)) }}
+              />
+            </div>
+          )}
 
       {activeRouteKey !== undefined
         ? (
@@ -381,37 +433,43 @@ function ReasoningSectionLoaded(props: {
             <legend className="mr-panel-title">
               {`${t('modelEfforts')} — ${activeModel.name ?? activeModel.id ?? modelIndex}`}
             </legend>
-            <div className="mr-stack">
-              <label className="mr-radio-row">
-                <input
-                  type="radio"
-                  name="effort-mode"
-                  checked={mode === 'inherit'}
-                  disabled={!raw?.writable}
-                  onChange={() => { setMode('inherit'); setSaved(false) }}
-                />
-                {t('modeInherit')}
-              </label>
-              <label className="mr-radio-row">
-                <input
-                  type="radio"
-                  name="effort-mode"
-                  checked={mode === 'off'}
-                  disabled={!raw?.writable}
-                  onChange={() => { setMode('off'); setSaved(false) }}
-                />
-                {t('modeOff')}
-              </label>
-              <label className="mr-radio-row">
-                <input
-                  type="radio"
-                  name="effort-mode"
-                  checked={mode === 'on'}
-                  disabled={!raw?.writable}
-                  onChange={() => { setMode('on'); setSaved(false) }}
-                />
-                {t('modeOn')}
-              </label>
+            <div className="mr-mode-row">
+              <Tooltip label={t('modeInheritTip')} side="bottom">
+                <label className="mr-radio-row">
+                  <input
+                    type="radio"
+                    name="effort-mode"
+                    checked={mode === 'inherit'}
+                    disabled={!raw?.writable}
+                    onChange={() => { setMode('inherit'); setSaved(false) }}
+                  />
+                  {t('modeInheritLabel')}
+                </label>
+              </Tooltip>
+              <Tooltip label={t('modeOffTip')} side="bottom">
+                <label className="mr-radio-row">
+                  <input
+                    type="radio"
+                    name="effort-mode"
+                    checked={mode === 'off'}
+                    disabled={!raw?.writable}
+                    onChange={() => { setMode('off'); setSaved(false) }}
+                  />
+                  {t('modeOffLabel')}
+                </label>
+              </Tooltip>
+              <Tooltip label={t('modeOnTip')} side="bottom">
+                <label className="mr-radio-row">
+                  <input
+                    type="radio"
+                    name="effort-mode"
+                    checked={mode === 'on'}
+                    disabled={!raw?.writable}
+                    onChange={() => { setMode('on'); setSaved(false) }}
+                  />
+                  {t('modeOnLabel')}
+                </label>
+              </Tooltip>
             </div>
             {mode === 'on'
               ? (
@@ -488,6 +546,11 @@ function ReasoningSectionLoaded(props: {
         <Button variant="primary" size="md" disabled={!canSave} onClick={() => { void save() }}>
           {t('save')}
         </Button>
+        <Tooltip label={t('applyAllTip')} side="top">
+          <Button variant="outline" size="md" disabled={!canApplyAll} onClick={() => { void applyToAll() }}>
+            {t('applyAll')}
+          </Button>
+        </Tooltip>
       </div>
               </>
             )}

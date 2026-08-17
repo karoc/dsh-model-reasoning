@@ -34,6 +34,10 @@ export const REASONING_STYLES = `
 .mr-panel-title { margin: 0 0 10px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary); }
 .mr-stack { display: flex; flex-direction: column; gap: 10px; }
 .mr-radio-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 18px; color: var(--dsw-alias-label-primary); cursor: pointer; }
+/* The three mode choices laid out side by side. */
+.mr-mode-row { display: flex; flex-wrap: wrap; gap: 18px; }
+/* A route with an empty models list reuses the empty-placeholder look, lighter. */
+.mr-model-empty { padding: 16px 20px; margin-top: 2px; }
 .mr-levels { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 /* Native radio themed like DSH's own forms (RiskConfirmation keeps native
    inputs and colors them via accent-color so they follow the theme instead of

@@ -13,8 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-08-16
+
 ### Added
 
+- **Apply to all models**: an action next to Save copies the current model's
+  thinking declaration (inherit / non-reasoning / levels + wire spellings) to
+  every model on the route at once.
+- **Mode choices in a row with tooltips**: the three modes (inherit /
+  non-reasoning / reasoning) now sit side by side; hover shows an explanation
+  via the DSH `Tooltip` component (no native `title`).
+- **Empty-models guidance**: selecting a provider that has no models shows a
+  friendly prompt (mirroring the empty-provider state) instead of an empty
+  dropdown.
 - **Automated release gate** (`scripts/release-check.mjs`, `pnpm release:check`):
   verifies bilingual README section/subsection parity, non-empty CHANGELOG
   entry, version/tag match on HEAD, clean working tree, fresh build output
