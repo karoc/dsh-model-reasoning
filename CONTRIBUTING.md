@@ -65,7 +65,9 @@ the `v<version>` tag on HEAD, working tree is clean, `lib/` is built and fresh
   best-effort; if the registry is unreachable it is skipped.
 - **`postpublish` verifies after the fact, it cannot prevent.** It runs only
   after the package is already on npm; a finding there means the release is
-  live but inconsistent — never re-publish the same version to "fix" it.
+  live but inconsistent — never re-publish the same version to "fix" it. It
+  polls the registry for index eventual consistency (up to ~42s) before
+  judging, so a successful publish is not falsely flagged right after upload.
 
 ## Release steps
 

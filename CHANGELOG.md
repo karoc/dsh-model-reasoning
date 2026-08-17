@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Post-publish check now tolerates registry eventual consistency.** Right
+  after upload, `npm view @<version>` can 404 for a few seconds while the index
+  catches up, which made `postpublish` falsely report problems for a successful
+  publish (and mark the npm command failed). It now polls until the version is
+  visible (up to ~42s) before verifying `latest` and the tarball, and only
+  reports an error when the version genuinely never appears.
+
 ## [0.1.4] - 2026-08-16
 
 ### Added

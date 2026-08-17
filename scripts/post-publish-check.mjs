@@ -6,11 +6,13 @@
  * It CANNOT prevent a bad publish — the upload already happened. Its job is to
  * confirm the release actually landed on the registry and to raise a loud,
  * unambiguous alarm when it did not, so a silent/partial publish is never
- * mistaken for success. Because the package IS live by the time this runs, a
- * failure here must NOT be read as "publish failed" — the message below makes
- * that explicit.
+ * mistaken for success.
  *
- * Checks:
+ * Registry eventual consistency: right after upload, `npm view <pkg>@<version>`
+ * can still 404 for a few seconds while the index catches up. So this script
+ * POLLS until the version is visible (or a timeout elapses) before judging it.
+ *
+ * Checks (after the version becomes visible):
  *   1. `dist-tags.latest` on the registry equals package.json version
  *   2. the published tarball contains every expected file
  *
@@ -24,12 +26,40 @@ import { fileURLToPath } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const run = (cmd, opts = {}) => execSync(cmd, { cwd: root, encoding: 'utf8', timeout: 20000, ...opts }).trim()
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 const { name, version } = pkg
 const problems = []
 
 console.log(`post-publish-check: ${name}@${version}`)
+
+/** True once `npm view <pkg>@<version>` stops 404-ing (index caught up). */
+function versionVisible() {
+  try {
+    return run(`npm view ${JSON.stringify(name)}@${version} version`).length > 0
+  } catch {
+    return false
+  }
+}
+
+// Poll until the published version is visible in the registry index.
+const POLL_INTERVAL_MS = 3000
+const POLL_ATTEMPTS = 14 // up to ~42s of waiting
+let visible = versionVisible()
+for (let attempt = 1; !visible && attempt <= POLL_ATTEMPTS; attempt += 1) {
+  await sleep(POLL_INTERVAL_MS)
+  visible = versionVisible()
+}
+if (!visible) {
+  console.error(`\n⚠️  ${name}@${version} did not become visible on the registry after `
+    + `${Math.round((POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000)}s of polling.`)
+  console.error('   The publish may have failed before the upload completed, or the index')
+  console.error('   is still catching up. Verify manually with `npm view dsh-model-reasoning versions`.')
+  console.error(`   Do NOT re-publish ${version} without checking — it may be live.`)
+  process.exit(1)
+}
+console.log(`✅ version ${version} is visible on the registry`)
 
 // 1. dist-tags.latest matches the published version.
 let latest
@@ -63,7 +93,7 @@ try {
 if (problems.length > 0) {
   console.error('\n⚠️  post-publish-check found problems:')
   for (const p of problems) console.error(`   - ${p}`)
-  console.error(`\n   IMPORTANT: ${name}@${version} IS live on the registry — the publish itself`)
+  console.error(`\n   IMPORTANT: ${name}@${version} IS on the registry — the publish itself`)
   console.error('   completed. These are POST-publish findings; do NOT re-publish the same version.')
   console.error('   Fix the cause and address it in the next release.')
   process.exit(1)
