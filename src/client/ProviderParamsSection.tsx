@@ -548,18 +548,14 @@ function ProviderParamsLoaded(props: {
         </div>
 
         <div className="mr-grid">
-          <Tooltip label={defaultText(t, EFFECTIVE_DEFAULTS.retryMaxRetries)} side="top">
-            <label className="mr-numfield">
-              <span className="mr-wire-label">{t('maxRetries')}</span>
-              <Input
-                className="mr-wire-input"
-                value={retry.maxRetries}
-                placeholder={retry.maxRetries === '' ? defaultText(t, EFFECTIVE_DEFAULTS.retryMaxRetries) : undefined}
-                disabled={normalDisabled}
-                onChange={(e) => { patch(current => ({ ...current, retry: { ...current.retry, maxRetries: e.target.value } })) }}
-              />
-            </label>
-          </Tooltip>
+          <NumberField
+            label={t('maxRetries')}
+            tip={`${t('maxRetriesTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryMaxRetries)}`}
+            value={retry.maxRetries}
+            placeholder={retry.maxRetries === '' ? defaultText(t, EFFECTIVE_DEFAULTS.retryMaxRetries) : ''}
+            disabled={normalDisabled}
+            onChange={next => patch(current => ({ ...current, retry: { ...current.retry, maxRetries: next } }))}
+          />
         </div>
 
         <div className={`mr-field${retry.mode === 'always' ? ' mr-dimmed' : ''}`}>
@@ -605,7 +601,7 @@ function ProviderParamsLoaded(props: {
           <div className="mr-grid">
             <NumberField
               label={t('initialDelayMs')}
-              tip={`${t('initialDelayMs')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryInitialDelayMs)}`}
+              tip={`${t('initialDelayMsTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryInitialDelayMs)}`}
               value={retry.initialDelayMs}
               placeholder={defaultText(t, EFFECTIVE_DEFAULTS.retryInitialDelayMs)}
               disabled={!writable}
@@ -613,7 +609,7 @@ function ProviderParamsLoaded(props: {
             />
             <NumberField
               label={t('maxDelayMs')}
-              tip={`${t('maxDelayMs')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryMaxDelayMs)}`}
+              tip={`${t('maxDelayMsTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryMaxDelayMs)}`}
               value={retry.maxDelayMs}
               placeholder={defaultText(t, EFFECTIVE_DEFAULTS.retryMaxDelayMs)}
               disabled={!writable}
@@ -621,7 +617,7 @@ function ProviderParamsLoaded(props: {
             />
             <NumberField
               label={t('jitterRatio')}
-              tip={`${t('jitterRatio')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryJitterRatio)}`}
+              tip={`${t('jitterRatioTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.retryJitterRatio)}`}
               value={retry.jitterRatio}
               placeholder={defaultText(t, EFFECTIVE_DEFAULTS.retryJitterRatio)}
               disabled={!writable}
@@ -637,7 +633,7 @@ function ProviderParamsLoaded(props: {
     <div className="mr-grid">
       <NumberField
         label={t('timeoutMs')}
-        tip={t('timeoutMs')}
+        tip={t('timeoutMsTip')}
         value={draft.numbers.timeoutMs}
         placeholder=''
         disabled={!writable}
@@ -645,7 +641,7 @@ function ProviderParamsLoaded(props: {
       />
       <NumberField
         label={t('websocketConnectTimeoutMs')}
-        tip={t('websocketConnectTimeoutMs')}
+        tip={t('websocketConnectTimeoutMsTip')}
         value={draft.numbers.websocketConnectTimeoutMs}
         placeholder=''
         disabled={!writable}
@@ -653,7 +649,7 @@ function ProviderParamsLoaded(props: {
       />
       <NumberField
         label={t('streamIdleTimeoutMs')}
-        tip={t('streamIdleTimeoutMs')}
+        tip={`${t('streamIdleTimeoutMsTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.streamIdleTimeoutMs)}`}
         value={draft.numbers.streamIdleTimeoutMs}
         placeholder={defaultText(t, EFFECTIVE_DEFAULTS.streamIdleTimeoutMs)}
         disabled={!writable}
@@ -690,7 +686,7 @@ function ProviderParamsLoaded(props: {
           <NumberField
             key={key}
             label={t(`budget_${key}` as ParamKey)}
-            tip={t(`budget_${key}` as ParamKey)}
+            tip={t('budgetsTitle')}
             value={draft.budgets[key]}
             placeholder=''
             disabled={!writable}
@@ -723,7 +719,7 @@ function ProviderParamsLoaded(props: {
         <div className="mr-grid">
           <NumberField
             label={t('defaultContextWindow')}
-            tip={t('defaultContextWindow')}
+            tip={`${t('defaultContextWindowTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.defaultContextWindow)}`}
             value={draft.numbers.defaultContextWindow}
             placeholder={defaultText(t, EFFECTIVE_DEFAULTS.defaultContextWindow)}
             disabled={!writable}
@@ -731,7 +727,7 @@ function ProviderParamsLoaded(props: {
           />
           <NumberField
             label={t('defaultMaxTokens')}
-            tip={t('defaultMaxTokens')}
+            tip={`${t('defaultMaxTokensTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.defaultMaxTokens)}`}
             value={draft.numbers.defaultMaxTokens}
             placeholder={defaultText(t, EFFECTIVE_DEFAULTS.defaultMaxTokens)}
             disabled={!writable}
@@ -758,7 +754,7 @@ function ProviderParamsLoaded(props: {
         <div className="mr-grid">
           <NumberField
             label={t('maxRequestImageBytes')}
-            tip={`${t('maxRequestImageBytes')} · ${defaultText(t, EFFECTIVE_DEFAULTS.maxRequestImageBytes)}`}
+            tip={`${t('maxRequestImageBytesTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.maxRequestImageBytes)}`}
             value={draft.numbers.maxRequestImageBytes}
             placeholder={defaultText(t, EFFECTIVE_DEFAULTS.maxRequestImageBytes)}
             disabled={!writable}
@@ -766,7 +762,7 @@ function ProviderParamsLoaded(props: {
           />
           <NumberField
             label={t('requestImagePixelBudget')}
-            tip={`${t('requestImagePixelBudget')} · ${defaultText(t, EFFECTIVE_DEFAULTS.requestImagePixelBudget)}`}
+            tip={`${t('requestImagePixelBudgetTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.requestImagePixelBudget)}`}
             value={draft.numbers.requestImagePixelBudget}
             placeholder={defaultText(t, EFFECTIVE_DEFAULTS.requestImagePixelBudget)}
             disabled={!writable}
@@ -774,7 +770,7 @@ function ProviderParamsLoaded(props: {
           />
           <NumberField
             label={t('requestImageMaxBytes')}
-            tip={`${t('requestImageMaxBytes')} · ${defaultText(t, EFFECTIVE_DEFAULTS.requestImageMaxBytes)}`}
+            tip={`${t('requestImageMaxBytesTip')} · ${defaultText(t, EFFECTIVE_DEFAULTS.requestImageMaxBytes)}`}
             value={draft.numbers.requestImageMaxBytes}
             placeholder={defaultText(t, EFFECTIVE_DEFAULTS.requestImageMaxBytes)}
             disabled={!writable}

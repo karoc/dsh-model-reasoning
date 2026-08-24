@@ -75,7 +75,19 @@ export const REASONING_STYLES = `
 .mr-group { display: flex; flex-direction: column; gap: 12px; }
 /* Two-column grid of labeled numeric fields (wraps on narrow panels). */
 .mr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; }
+/* Grid items may shrink below content size, so a long field name engages
+   ellipsis instead of stretching the cell or wrapping onto a second line —
+   a wrapped label pushes its input down and breaks row alignment. */
+.mr-grid > * { min-width: 0; }
 .mr-numfield { display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+/* Field names stay on ONE line (full descriptions live in the tooltip): a
+   two-line label is what used to misalign inputs across a grid row. */
+.mr-numfield .mr-wire-label {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .mr-numfield .mr-wire-input { width: 100%; }
 /* Inline input + button row (custom retryable code entry). */
 .mr-inline { display: flex; align-items: center; gap: 8px; margin-top: 8px; }

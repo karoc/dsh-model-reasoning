@@ -55,6 +55,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Grid field labels no longer wrap onto two lines and misalign inputs.**
+  Managed-field names render as the bare wire key on a single line (ellipsis
+  when space runs out); the full description moved into the hover tooltip via
+  dedicated `*Tip` copy keys, and grid items may now shrink so ellipsis engages
+  instead of stretching the cell.
 - **Post-publish check now tolerates registry eventual consistency.** Right
   after upload, `npm view @<version>` can 404 for a few seconds while the index
   catches up, which made `postpublish` falsely report problems for a successful
