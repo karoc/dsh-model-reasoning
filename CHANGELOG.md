@@ -11,15 +11,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## [Unreleased]
+## [0.2.0] - 2026-08-17
 
 ### Added
 
-- **Model search filter**: a filter input above the model selector narrows a
-  long provider model list by name / id as you type. Purely display-level — it
-  keeps the stored declaration order and never touches the write path; a query
-  that no longer matches the selected model only hides it from the dropdown
-  while its editor panel below keeps working.
+- **The page is now a provider-parameter manager** (renamed 「提供方参数 /
+  Provider parameters」, section id `provider-params`). Beyond the existing
+  per-model reasoning editor, it manages every route-level parameter the
+  built-in Models page does not expose, for EVERY `llm-pi-ai` provider route
+  (catalog routes included):
+  - **Retry & backoff** (`retryPolicy`): mode `normal`/`always`, `maxRetries`,
+    `retryableCodes` (five stable preset codes + custom entries), and the
+    shared exponential backoff (`initialDelayMs`, `maxDelayMs`, `jitterRatio`);
+    an all-defaults normal policy collapses back to unset, and switching modes
+    rewrites the subtree so inactive fields never linger.
+  - **Timeouts & transport**: `timeoutMs`, `websocketConnectTimeoutMs`,
+    `streamIdleTimeoutMs`, `transport`.
+  - **Caching & thinking budgets**: `cacheRetention`,
+    `thinkingBudgets.{minimal,low,medium,high}`.
+  - **Capacities & request budgets**: `defaultContextWindow`,
+    `defaultMaxTokens`, `defaultInput` (`text/image`),
+    `maxRequestImageBytes`, `requestImagePixelBudget`,
+    `requestImageMaxBytes`.
+- Effective adapter defaults render as placeholders while a field is unset;
+  clearing a field removes the override instead of echoing the default.
+- Local validation mirrors the host's resolution rules (retry bounds, timer
+  ceiling, positive-integer capacities, jitter ratio, non-empty modality list),
+  blocking the save before the RPC; host-side `settings-rejected` messages are
+  surfaced verbatim.
+- A parameter registry (`src/client/params.ts`) now owns value domains,
+  defaults, validators, and the minimal-op diff engine — scalar overrides write
+  precise `set`/`unset` paths while composites and the `models` array write
+  whole keys. After this plugin's own save succeeds, the draft reseeds from the
+  stored document exactly once so server echoes never read as unsaved edits.
+- Unit tests for the registry (`npm test`, node:test running TypeScript
+  directly) pinning validation rules and op-diff behavior.
+
+### Changed
+
+- The model search filter ships in this release (developed post-0.1.4): a
+  display-only filter above the model selector narrows by name / id, keeping
+  the stored order and write path untouched.
 
 ### Fixed
 

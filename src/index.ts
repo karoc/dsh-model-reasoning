@@ -1,3 +1,3 @@
 /** Host loader entry for the browser implementation exported from `./client`. */
-/** Host plugin body — no host-side behavior for the model-reasoning plugin. */
+/** Host plugin body — no host-side behavior for the provider-parameters plugin. */
 export function apply(): void {}

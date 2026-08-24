@@ -70,7 +70,18 @@ export const REASONING_STYLES = `
 .mr-hint { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 .mr-error { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-error-primary); }
 .mr-success { margin: 8px 0 0; font-size: 12px; line-height: 18px; color: var(--dsw-alias-state-success-primary); }
-.mr-actions { display: flex; gap: 8px; }
+/* Parameter-group tab strip (Pill row) and the active group's body. */
+.mr-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
+.mr-group { display: flex; flex-direction: column; gap: 12px; }
+/* Two-column grid of labeled numeric fields (wraps on narrow panels). */
+.mr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; }
+.mr-numfield { display: flex; flex-direction: column; gap: 4px; cursor: pointer; }
+.mr-numfield .mr-wire-input { width: 100%; }
+/* Inline input + button row (custom retryable code entry). */
+.mr-inline { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+/* Normal-mode-only controls while Always mode is selected. */
+.mr-dimmed { opacity: 0.5; }
+.mr-actions { display: flex; gap: 8px; margin-top: 2px; }
 `
 
 /**

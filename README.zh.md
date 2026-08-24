@@ -6,30 +6,60 @@
 [![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
 [![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
 
-一个**外部** DeepSeek Harness Web 客户端插件：新增一个设置页，用来为第三方（pi-ai）提供方配置**每个模型的思考等级（推理强度 / reasoning efforts）**。它写入与 `llm-pi-ai` 适配器读取完全相同的 `llm-pi-ai.providers.<route>.models[].reasoningEfforts`（以及路由级 `reasoning`）字段，因此 composer 的「推理等级」选择器和路由默认值无需任何额外改动即可生效。
+一个**外部** DeepSeek Harness Web 客户端插件：新增一个设置页，管理内置 **Models**
+页刻意不暴露的提供方路由参数——重试与退避策略、超时、传输方式、缓存、思考预算、
+容量、请求图片预算——以及第三方（pi-ai）提供方的**按模型思考等级（推理强度）**。
+它写入与适配器读取完全一致的 `llm-pi-ai.providers.<route>.*` 字段，无需任何其他
+配置即可生效。
 
-为什么要做成外部插件：内置的 **Models** 设置表单刻意不暴露推理强度（它是按模型的能力），而给内置 `ui-settings-models` 包加字段会在官方下次发布时被覆盖。本包作为可安装的 **bundle** 交付，从不触碰仓库源码，官方更新无法覆盖它。
+为什么要做成外部插件：给内置 `ui-settings-models` 包加字段会在官方下次发布时被
+覆盖。本包作为可安装的 **bundle** 交付，从不触碰仓库源码，官方更新无法覆盖它。
 
-## 它新增了什么
+## 它管理什么
 
-一个放在内置 **Models** 页之后的新设置项 **「模型思考等级 / Model reasoning」**。对每个带有显式 `models` 列表的第三方提供方，你可以：
+设置里新增一项 **「提供方参数 / Provider parameters」**，排在内置 Models 页之后。
+选择任意提供方路由——`llm-pi-ai` 的 `providers` 字典里的每个条目都可以在这里编辑，
+包括目录路由——在五个参数组里进行管理：
 
-- 设置**路由默认思考等级**（`providers.<route>.reasoning`）；
-- 对每个模型选择 **继承 / 不思考（`false`）/ 思考并选择等级集合**（`reasoningEfforts`），勾选标准等级 `off minimal low medium high xhigh max`。
+- **推理强度**：路由默认思考等级（`providers.<route>.reasoning`）；对带显式
+  `models` 列表的路由，还可逐模型选择 **继承 / 不思考（`false`）/ 思考并选择等级
+  集合**（`reasoningEfforts`），勾选标准等级 `off minimal low medium high xhigh max`。模型下拉框上方有仅影响展示的**搜索过滤框**，按名称 / id
+  筛选长列表，不改变存储顺序，也不触碰写入路径。
+- **重试与退避**：`retryPolicy.mode`（`normal` 有界瞬时重试 vs `always` 无限重试）、
+  `maxRetries`、`retryableCodes`（五个稳定预设码 + 自定义码）、以及两种模式共享的
+  指数退避（`initialDelayMs`、`maxDelayMs`、`jitterRatio`）。未设置的值回退到适配器
+  默认（重试 5 次、首延 500ms、上限 10s、抖动 0.1）。
+- **超时与传输**：`timeoutMs`、`websocketConnectTimeoutMs`、
+  `streamIdleTimeoutMs`（默认 300000 毫秒），以及 `transport`
+  （`auto/sse/websocket/websocket-cached`）。
+- **缓存与思考预算**：`cacheRetention`（`none/short/long`）和各等级的
+  `thinkingBudgets` token 预算（`minimal/low/medium/high`）。
+- **容量与请求预算**：`defaultContextWindow`、`defaultMaxTokens`、`defaultInput`
+  模态（`text/image`），以及单请求图片负载上限（`maxRequestImageBytes`、
+  `requestImagePixelBudget`、`requestImageMaxBytes`）。
 
-三种模式并排一行，悬停显示说明（tooltip）；**应用到所有模型** 按钮把当前模型的思考声明（等级 + 线上拼写）一键复制到该路由的全部模型。提供方为空、无可用提供方、或提供方无模型时，都有对应的空状态引导。模型下拉框上方有**模型搜索过滤**框，可按名称 / id 边输入边筛选——仅影响展示，不改变存储的声明顺序，也不触碰写入路径。
+每个字段未设置时以占位符显示生效的适配器默认值；清空字段即移除该覆盖项，而不会把
+默认值回写一遍。本地校验镜像 host 自身的解析规则，大多数错误在写入前就会被拦下；
+host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路径带 revision 冲突
+保护，并发修改会被拒绝而不是被静默覆盖。**应用到所有模型**按钮可把当前模型的思考
+声明一键复制到该路由的全部模型。
 
 ### 自定义线上拼写（适配任意上游词汇）
 
-每个被选中的等级都有一个**线上拼写（wire spelling）**字段（默认等于等级名）。修改它即可重映射该等级发到上游的值——例如把模型最高档叫 Ultra 时配 `max → ultra`，或 `high → turbo`。`off` 可以发送空值（默认）或自定义值。这是在**不等待适配器更新**的情况下适配模型思考词汇的受支持方式。
+每个被选中的思考等级都有一个**线上拼写（wire spelling）**字段（默认等于等级名）。
+修改它即可重映射该等级发到上游的值——例如把模型最高档叫 Ultra 时配 `max → ultra`，
+或 `high → turbo`。`off` 可以发送空值（默认）或自定义值。
 
-> ⚠️ DSH **不支持**发明新的等级名。pi-ai 的 schema 把 `reasoningEfforts` 的键固定为上面的七个等级（`z.dict(..., z.union(levels))`），解析时也只读取这些键，所以裸写 `ultra:` 键会在写入时被拒绝、在请求时被忽略。「Ultra」应通过重映射已有等级的线上拼写（`max: ultra`）来表达，而不是新增 `ultra` 键。
+> ⚠️ DSH **不支持**发明新的等级名。pi-ai 的 schema 把 `reasoningEfforts` 的键固定为
+> 七个标准等级，解析时也只读取这些键，所以裸写 `ultra:` 键会在写入时被拒绝。「Ultra」
+> 应通过重映射已有等级的线上拼写（`max: ultra`）来表达。
 
 ### 空状态
 
-尚未配置任何第三方提供方时，页面会显示一张友好的占位卡片（而不是一个空洞的下拉框），提示你先添加自定义提供方，并指向 **设置 → 模型 → 添加自定义提供方**。它区分「完全没有提供方」和「有提供方但没有自定义模型列表」两种情况，并在设置文档加载时显示加载中 / 不可用提示。
-
-写入路径使用官方的 `settings.mutate` RPC 并带 revision 冲突保护，并发修改会被拒绝而不是被静默覆盖。
+尚未配置第三方提供方时，页面显示友好的占位卡片，指向 **设置 → 模型 → 添加自定义
+提供方**。选中目录路由（无显式 `models` 列表）时会说明它的**模型**在此只读——目录
+模型的推理等级仍在 composer 中选择——而上方的路由级参数组始终可以编辑。设置文档
+加载时显示加载中 / 不可用提示。
 
 ## 安装
 
@@ -43,7 +73,7 @@
 dsh plugin --profile web add dsh-model-reasoning
 ```
 
-这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **设置 → 模型思考等级 / Model reasoning**。
+这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **设置 → 提供方参数 / Provider parameters**。
 
 ### 从 git 安装
 
@@ -75,37 +105,52 @@ dsh plugin --profile web remove dsh-model-reasoning
 ## 目录结构
 
 ```
-cordis.patch.yml      # bundle 层：挂载 client-modules 服务可发现的条目（dsh.client 清单）
-package.json          # dsh.bundle（patch）+ dsh.client（web）+ exports["./client"]
-tsdown.config.ts      # 自包含构建：node 半区 + 模块表客户端 bundle
-src/index.ts          # host apply（空操作）
-src/client/index.ts   # client apply：settingsScope.bind(llm-pi-ai) + 注册 settings.section
-src/client/ReasoningSection.tsx  # 设置页（路由 → 模型 → 思考等级编辑器）
-src/client/styles.ts   # 设计 token 样式（--dsw-alias-*）+ 注入
-src/client/locales.ts # 中英文文案
+cordis.patch.yml                # bundle 层：挂载 client-modules 服务可发现的条目（dsh.client 清单）
+package.json                    # dsh.bundle（patch）+ dsh.client（web）+ exports["./client"]
+tsdown.config.ts                # 自包含构建：node 半区 + 模块表客户端 bundle
+src/index.ts                    # host apply（空操作）
+src/client/index.ts             # client apply：settingsScope.bind(llm-pi-ai) + 注册 settings.section
+src/client/ProviderParamsSection.tsx  # 设置页（路由 → 参数分组页签 → 各编辑器）
+src/client/params.ts            # 受管字段注册表：取值域、默认值、镜像 host 的校验器、
+                                # 草稿模型、最小 op 差异引擎
+src/client/styles.ts            # 设计 token 样式（--dsw-alias-*）+ 注入
+src/client/locales.ts           # 中英文案
+tests/params.test.ts            # 纯逻辑注册表的单测
 ```
 
-## 构建
+## 构建与测试
 
 ```sh
-pnpm install
-pnpm bundle          # 产出 lib/index.js + lib/client.js
+npm install
+npm run bundle       # 产出 lib/index.js + lib/client.js
+npm test             # params.ts 单测（node:test 直接执行 TypeScript）
 pnpm release:check   # 发布门禁：文档/变更日志/标签/工作区/构建/仓库 全部通过才可发布
-pnpm publish         # 先跑门禁（prepack/prepublishOnly），发布后由 postpublish 验证线上版本
+npm publish          # 先跑门禁（prepack/prepublishOnly），发布后由 postpublish 验证线上版本
 ```
 
-bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-*`）保持为外部依赖——它们在运行时从 loader 的模块表解析；其余全部内联。
+bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client-*`）
+保持为外部依赖——它们在运行时从 loader 的模块表解析；其余全部内联。
 
 ## 说明 / 限制
 
-- 这里只能枚举带显式 `models` 列表的路由（客户端无法触达已安装的目录）。纯目录提供方保持使用内置目录的等级，并在 composer 选择器里选。
-- 线上拼写默认等于等级名；如需改线上的拼写（如 `max: ultra`），可在 `settings.yaml` 中直接编辑该模型。
-- **设置项导航图标由壳分配，不由插件分配。** 内置 `ui-settings-general` 的 `SettingsRoot.tsx` `navIcon(id)` 只映射已知 id（`models`、`agent-presets`、`plugins`），其余 id（包括本项的 `model-reasoning`）一律回退为齿轮。`settings.section` 注册没有 icon 字段，因此外部插件不改壳就无法设置图标。等 DSH 开放按 section 指定图标的能力（例如注册项增加 icon 选项）后，为该项目使用 `dsh-client-ui-primitives` 的 `IconThinkOutline16`。
+- 只有携带显式 `models` 列表的路由才提供模型级编辑器（客户端无法触达已安装目录）；
+  所有路由的路由级参数组始终可编辑。通过 `modelOverrides` 定制目录模型属于后续计划。
+- 凭据管理（`apiKeyEnv`）、`displayName`、`baseURL`、协议（`api`）和模型列表结构
+  仍归内置 **Models** 页管理；本插件不做重复建设。
+- 线上拼写默认等于等级名；如需改线上的拼写（如 `max: ultra`），可在 `settings.yaml`
+  中直接编辑该模型。
+- 上游已移除的遗留路由级键（`provider`、`maxRetries`、`maxRetryDelayMs`）本插件
+  绝不写入。
+- **设置项导航图标由壳分配，不由插件分配。** 内置 `ui-settings-general` 的
+  `SettingsRoot.tsx` `navIcon(id)` 只映射已知 id，其余 id（包括本项的
+  `provider-params`）一律回退为齿轮。等 DSH 开放按 section 指定图标的能力后，为
+  该项目使用 `dsh-client-ui-primitives` 的 `IconThinkOutline16`。
 
-## License
+## 许可证
 
 [MIT](LICENSE)
 
 ## 参与贡献
 
-参见 [CONTRIBUTING.md](CONTRIBUTING.md)（开发与发布检查清单）和 [CHANGELOG.md](CHANGELOG.md)（版本历史）。
+参见 [CONTRIBUTING.md](CONTRIBUTING.md)（开发与发布检查清单）和
+[CHANGELOG.md](CHANGELOG.md)（版本历史）。
