@@ -74,7 +74,7 @@ export const REASONING_STYLES = `
 .mr-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 4px; }
 .mr-group { display: flex; flex-direction: column; gap: 12px; }
 /* Two-column grid of labeled numeric fields (wraps on narrow panels). */
-.mr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; }
+.mr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px 24px; }
 /* Grid items may shrink below content size, so a long field name engages
    ellipsis instead of stretching the cell or wrapping onto a second line —
    a wrapped label pushes its input down and breaks row alignment. */
@@ -88,7 +88,10 @@ export const REASONING_STYLES = `
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.mr-numfield .mr-wire-input { width: 100%; }
+/* The Input keeps the primitive's intrinsic ~200px width inside its track —
+   stretching it edge-to-edge (width:100%) glued neighboring columns' borders
+   together with nothing but the grid gap between them. The unused track tail
+   IS the inter-field whitespace, exactly like the built-in forms. */
 /* Inline input + button row (custom retryable code entry). */
 .mr-inline { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 /* Normal-mode-only controls while Always mode is selected. */
