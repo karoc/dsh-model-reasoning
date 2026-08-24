@@ -161,12 +161,23 @@ if (stale.length > 0) {
   fail(`build output is stale (src/ newer than ${stale.join(', ')}) — run pnpm bundle first`)
 }
 
-// 8. not already published (best effort; offline or 404 means not published).
+// 8. not already published — probed DIRECTLY against the registry index with
+// the built-in fetch. `npm view <pkg>@<unpublished>` is functionally correct
+// but prints a 9-line E404 error block on every call (prepublishOnly + prepack
+// = two blocks per publish), so a SUCCESSFUL publish showed "满屏错误 + ✅".
+// Only an explicit HTTP 200 means "already published"; 404 and network
+// failure both mean "not published / index unreachable".
 try {
-  const published = run(`npm view ${JSON.stringify('dsh-model-reasoning')}@${version} version`)
-  if (published.length > 0) fail(`version ${version} is already published on npm (${published}) — bump the version`)
+  const probe = await fetch(`https://registry.npmjs.org/dsh-model-reasoning/${version}`, {
+    headers: { accept: 'application/vnd.npm.install-v1+json' },
+  })
+  if (probe.status === 200) {
+    fail(`version ${version} is already published on npm — bump the version`)
+  } else {
+    console.log(`release-check: ${version} is NOT published yet — safe to publish`)
+  }
 } catch {
-  // E404 or network failure: treated as "not published yet"
+  console.log('release-check: registry unreachable — skipping the already-published probe')
 }
 
 if (failures.length > 0) {

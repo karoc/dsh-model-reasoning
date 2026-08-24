@@ -11,6 +11,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.2.1] - 2026-08-24
+
+### Fixed
+
+- **Publish lifecycle output no longer sprays `npm error E404` blocks.**
+  Registry probes in `release-check.mjs` (step 8) and `post-publish-check.mjs`
+  (visibility polling, dist-tags, tarball URL) used the npm CLI, which prints a
+  9-line E404 error block on every miss — twice before upload and once per poll
+  after it — so a SUCCESSFUL publish showed 「满屏错误 + ✅」. Both scripts now
+  query the registry index directly with the built-in `fetch`: only HTTP 200
+  means "already published"; the gate prints `is NOT published yet — safe to
+  publish` / `registry unreachable`, and postpublish polling prints one
+  progress line per retry (`not visible yet — index catching up; retry N/14`).
+  Side benefit: no npm subprocess means no stray `~/.npm` log writes. Same
+  remedy as prescribed by the dsh-plugin-development skill §6 (dsh-kanban
+  0.2.0 precedent).
+
 ## [0.2.0] - 2026-08-17
 
 ### Added
