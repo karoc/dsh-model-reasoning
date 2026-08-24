@@ -16,3 +16,6 @@ pnpm-debug.log*
 .idea/
 .vscode/
 *.swp
+
+# Session workspace state (agent kanban board)
+KANBAN.json
