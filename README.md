@@ -49,6 +49,11 @@ five parameter groups:
   per-request image payload caps (`maxRequestImageBytes`,
   `requestImagePixelBudget`, `requestImageMaxBytes`).
 
+Every group's panel states its **scope** up front: everything except Reasoning
+is ONE route-wide value shared by every model (the pi-ai schema defines those
+fields at route level only); Reasoning combines a route default with per-model
+overrides.
+
 Every field shows the effective adapter default as its placeholder while unset;
 clearing a field removes the override instead of writing an echo of the default.
 Local validation mirrors the host's own resolution rules, so most mistakes are

@@ -46,6 +46,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stored document exactly once so server echoes never read as unsaved edits.
 - Unit tests for the registry (`npm test`, node:test running TypeScript
   directly) pinning validation rules and op-diff behavior.
+- **Scope badges**: each parameter-group panel states its scope up front —
+  「整条路由 / Whole route」 for retry & backoff, timeouts & transport, caching &
+  budgets, and capacities (the schema defines these once per route, shared by
+  every model); 「路由默认 + 可按模型单独调 / Route default + per model」 for
+  reasoning, the one group with a per-model dimension.
 
 ### Changed
 
@@ -64,6 +69,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Input primitive's intrinsic width inside their track instead of stretching
   edge-to-edge (which left only the raw column gap between the two columns'
   borders), and the column gap widened to 24px.
+- **The model search input no longer shares a line with the model selector.**
+  The search box is promoted to its own block line above the selector — left as
+  an inline box it flowed BESIDE the Menu anchor button, glued to it.
 - **Post-publish check now tolerates registry eventual consistency.** Right
   after upload, `npm view @<version>` can 404 for a few seconds while the index
   catches up, which made `postpublish` falsely report problems for a successful

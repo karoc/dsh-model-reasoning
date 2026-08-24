@@ -60,6 +60,18 @@ const GROUPS = [
 ] as const
 type GroupId = (typeof GROUPS)[number]['id']
 
+/** Scope statement per group: retry/backoff, timeouts, transport, caching,
+ * budgets, and capacities exist ONLY at route level in the llm-pi-ai schema
+ * (one value shared by every model); reasoning is the one group with a
+ * per-model dimension (route default + model overrides). */
+const SCOPE: Record<GroupId, { chip: ParamKey; tip: ParamKey }> = {
+  reasoning: { chip: 'scopeMixed', tip: 'scopeMixedTip' },
+  retry: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
+  timeouts: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
+  cache: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
+  capacity: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
+}
+
 /** How one model's reasoning editor is currently set. */
 type EffortMode = 'inherit' | 'off' | 'on'
 
@@ -837,6 +849,12 @@ function ProviderParamsLoaded(props: {
                         ))}
                       </div>
                       <div className="mr-group">
+                        <div className="mr-scoperow">
+                          <Tooltip label={t(SCOPE[activeGroup].tip)} side="top">
+                            <span className="mr-scopechip">{t(SCOPE[activeGroup].chip)}</span>
+                          </Tooltip>
+                          <span className="mr-scopetip">{t(SCOPE[activeGroup].tip)}</span>
+                        </div>
                         {panels[activeGroup]()}
                       </div>
                     </>

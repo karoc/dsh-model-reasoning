@@ -54,8 +54,24 @@ export const REASONING_STYLES = `
 .mr-wire-off input[type='checkbox'] { accent-color: var(--dsw-alias-button-primary-fill); }
 .mr-wire-input { width: 200px; }
 /* Model search filter above the model selector; matches the built-in field
-   input width so the dropdown sits under a same-sized box. */
-.mr-search { width: 200px; margin-bottom: 8px; }
+   input width so the dropdown sits under a same-sized box. display:flex
+   promotes the Input's inline-flex wrap to its own block line — left as an
+   inline box it flowed BESIDE the Menu anchor button below it, glued. */
+.mr-search { display: flex; width: 280px; margin-bottom: 8px; }
+/* Per-group scope badge row: states whether the group is one route-wide value
+   or a route default with per-model overrides. */
+.mr-scoperow { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mr-scopechip {
+  flex: none;
+  padding: 2px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-module-platform);
+  font-size: 12px; line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+.mr-scopetip { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 /* Empty state: dashed placeholder box matching the built-in Models form's
    empty catalog (modelEmpty: dashed border-l3, centered, tertiary label). */
 .mr-empty {

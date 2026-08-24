@@ -38,6 +38,10 @@
   模态（`text/image`），以及单请求图片负载上限（`maxRequestImageBytes`、
   `requestImagePixelBudget`、`requestImageMaxBytes`）。
 
+每个参数组面板顶部都标明**作用范围**：除「推理强度」外，其余各组都是该路由统一
+一份值、所有模型共享（pi-ai schema 只在路由级定义它们）；「推理强度」则是路由默认
++ 可按模型单独覆盖。
+
 每个字段未设置时以占位符显示生效的适配器默认值；清空字段即移除该覆盖项，而不会把
 默认值回写一遍。本地校验镜像 host 自身的解析规则，大多数错误在写入前就会被拦下；
 host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路径带 revision 冲突

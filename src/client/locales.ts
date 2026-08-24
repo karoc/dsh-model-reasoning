@@ -93,6 +93,10 @@ export const en = {
   inheritHint: 'Adapter default (unset)',
   restoreField: 'Clear',
   restoreFieldTip: 'Remove this override so the adapter default applies again.',
+  scopeRoute: 'Whole route',
+  scopeRouteTip: 'One value for this provider route — every model on it shares these settings.',
+  scopeMixed: 'Route default + per model',
+  scopeMixedTip: 'The route default applies to every model; a model may override it in the Model thinking levels editor below.',
   save: 'Save',
   saved: 'Saved.',
   // Validation errors (rendered as "field: message")
@@ -201,6 +205,10 @@ export const zh: { [Key in keyof typeof en]: string } = {
   inheritHint: '适配器默认（未设置）',
   restoreField: '清除',
   restoreFieldTip: '移除该项覆盖，恢复适配器默认行为。',
+  scopeRoute: '整条路由',
+  scopeRouteTip: '该提供方路由统一一份值——所有模型共享这些设置。',
+  scopeMixed: '路由默认 + 可按模型单独调',
+  scopeMixedTip: '路由默认对所有模型生效；个别模型可在下方「模型思考等级」编辑器里单独覆盖。',
   save: '保存',
   saved: '已保存。',
   // 校验错误（渲染为“字段： 错误”）
