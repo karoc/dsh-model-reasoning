@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `defaultMaxTokens`, `defaultInput` (`text/image`),
     `maxRequestImageBytes`, `requestImagePixelBudget`,
     `requestImageMaxBytes`.
+- **Per-model capability editing** — the first tab, 「按模型 / Per model」, edits
+  the SELECTED model's own declaration instead of a route-wide echo: input
+  modalities (`input`: `text`/`image`, tri-state — an emptied list clears the
+  key back to inherit), context/output caps (`contextWindow`, `maxTokens`),
+  and the full reasoning editor (inherit / non-reasoning / levels + wire
+  spelling). A mixed text-only + vision provider therefore declares each
+  model's real modality set instead of one route-wide guess. **Apply to all
+  models** copies only the CHECKED dimensions (modalities / caps / reasoning)
+  from the editor to every model on the route.
 - Effective adapter defaults render as placeholders while a field is unset;
   clearing a field removes the override instead of echoing the default.
 - Local validation mirrors the host's resolution rules (retry bounds, timer
@@ -46,11 +55,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stored document exactly once so server echoes never read as unsaved edits.
 - Unit tests for the registry (`npm test`, node:test running TypeScript
   directly) pinning validation rules and op-diff behavior.
-- **Scope badges**: each parameter-group panel states its scope up front —
-  「整条路由 / Whole route」 for retry & backoff, timeouts & transport, caching &
-  budgets, and capacities (the schema defines these once per route, shared by
-  every model); 「路由默认 + 可按模型单独调 / Route default + per model」 for
-  reasoning, the one group with a per-model dimension.
+- **Scope badges**: every parameter-group panel opens with a badge stating its
+  scope — 「按模型 / Per model」 (written into the selected model's declaration;
+  unset dimensions inherit route fallbacks or catalog values) vs 「整条路由 /
+  Whole route」, whose hover tooltip explains that those fields exist ONLY at
+  route level in the llm-pi-ai schema, so one shared value is the whole truth
+  rather than a limitation of this UI. The explanation lives in the tooltip
+  only, never duplicated as always-visible text beside the chip.
 
 ### Changed
 

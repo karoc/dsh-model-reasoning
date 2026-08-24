@@ -11,16 +11,19 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   EFFECTIVE_DEFAULTS,
+  buildModelEntry,
   buildRouteOps,
   effortStateOf,
   emptyParamsDraft,
+  modelParamsOf,
   paramsDraftOf,
   retryWireOf,
   stable,
+  validateModelParams,
   validateParamsDraft,
   wireOf,
 } from '../src/client/params.ts'
-import type { PiAiRoute } from '../src/client/params.ts'
+import type { PiAiModel, PiAiRoute } from '../src/client/params.ts'
 
 describe('effortStateOf / wireOf round trip', () => {
   it('reads false as off and absent as inherit', () => {
@@ -192,6 +195,47 @@ describe('validateParamsDraft mirrors host rules', () => {
     const draft = emptyParamsDraft()
     draft.numbers.timeoutMs = 'abc'
     assert.deepEqual(validateParamsDraft(draft), [{ field: 'timeoutMs', kind: 'errNumber' }])
+  })
+})
+
+describe('per-model params (input / caps)', () => {
+  it('seeds an unset draft from a bare entry', () => {
+    const draft = modelParamsOf({ id: 'm1' })
+    assert.equal(draft.inputPresent, false)
+    assert.deepEqual(draft.inputMods, [])
+    assert.equal(draft.contextWindow, '')
+    assert.equal(draft.maxTokens, '')
+  })
+
+  it('buildModelEntry writes modalities canonically and keeps identity + reasoning', () => {
+    const base: PiAiModel = { id: 'vision', name: 'Vision', reasoningEfforts: { high: 'high' } }
+    const draft = { inputPresent: true, inputMods: ['image', 'text'], contextWindow: '', maxTokens: '' }
+    const next = buildModelEntry(base, draft)
+    // Canonical MODALITIES order, not the toggle order.
+    assert.deepEqual(next.input, ['text', 'image'])
+    assert.equal(next.id, 'vision')
+    assert.equal(next.name, 'Vision')
+    // The caller owns reasoningEfforts; buildModelEntry passes it through.
+    assert.deepEqual(next.reasoningEfforts, { high: 'high' })
+  })
+
+  it('buildModelEntry clears keys when the draft unsets them', () => {
+    const base: PiAiModel = { id: 'm', input: ['text'], contextWindow: 4096, maxTokens: 1024 }
+    const next = buildModelEntry(base, { inputPresent: false, inputMods: [], contextWindow: '', maxTokens: '' })
+    assert.equal(next.input, undefined)
+    assert.equal(next.contextWindow, undefined)
+    assert.equal(next.maxTokens, undefined)
+  })
+
+  it('validateModelParams rejects zero/negative/fractional caps', () => {
+    assert.deepEqual(validateModelParams({ inputPresent: true, inputMods: ['text'], contextWindow: '0.5', maxTokens: '-3' }), [
+      { field: 'contextWindow', kind: 'errPositiveInt' },
+      { field: 'maxTokens', kind: 'errPositiveInt' },
+    ])
+    assert.deepEqual(
+      validateModelParams({ inputPresent: true, inputMods: [], contextWindow: '8192', maxTokens: '' }),
+      [],
+    )
   })
 })
 

@@ -26,10 +26,11 @@ import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill
 import {
   BUDGET_KEYS, CACHE_RETENTIONS, EFFECTIVE_DEFAULTS, MODALITIES,
   NUMBER_FIELDS, REASONING_LEVELS, RETRYABLE_CODE_PRESETS, TRANSPORTS,
-  buildRouteOps, effortStateOf, paramsDraftOf, validateParamsDraft, wireOf,
+  buildModelEntry, buildRouteOps, effortStateOf, modelParamsOf, parseNumber,
+  paramsDraftOf, stable, validateModelParams, validateParamsDraft, wireOf,
 } from './params.ts'
 import type {
-  FieldIssue, ParamsDraft, PiAiRoute, PiAiSection, ReasoningLevel,
+  FieldIssue, ModelParamsDraft, ParamsDraft, PiAiRoute, PiAiSection, ReasoningLevel,
 } from './params.ts'
 import type { en, ParamKey } from './locales.ts'
 
@@ -50,9 +51,11 @@ export interface ProviderParamsProps {
   useModelReasoning?: (selector: (snapshot: SettingsScopeSnapshot<PiAiSection>) => unknown) => unknown
 }
 
-/** Parameter groups, in panel order; ids index the tab strip. */
+/** Parameter groups, in panel order; ids index the tab strip. The first tab
+ * hosts every PER-MODEL editable dimension (input / caps / reasoning); the
+ * rest are route-wide because the schema defines those fields once per route. */
 const GROUPS = [
-  { id: 'reasoning', label: 'groupReasoning' },
+  { id: 'permodel', label: 'groupPerModel' },
   { id: 'retry', label: 'groupRetry' },
   { id: 'timeouts', label: 'groupTimeouts' },
   { id: 'cache', label: 'groupCache' },
@@ -62,10 +65,10 @@ type GroupId = (typeof GROUPS)[number]['id']
 
 /** Scope statement per group: retry/backoff, timeouts, transport, caching,
  * budgets, and capacities exist ONLY at route level in the llm-pi-ai schema
- * (one value shared by every model); reasoning is the one group with a
- * per-model dimension (route default + model overrides). */
+ * (one value shared by every model); the per-model tab writes into the
+ * selected model's own declaration. */
 const SCOPE: Record<GroupId, { chip: ParamKey; tip: ParamKey }> = {
-  reasoning: { chip: 'scopeMixed', tip: 'scopeMixedTip' },
+  permodel: { chip: 'scopePerModel', tip: 'scopePerModelTip' },
   retry: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
   timeouts: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
   cache: { chip: 'scopeRoute', tip: 'scopeRouteTip' },
@@ -74,6 +77,16 @@ const SCOPE: Record<GroupId, { chip: ParamKey; tip: ParamKey }> = {
 
 /** How one model's reasoning editor is currently set. */
 type EffortMode = 'inherit' | 'off' | 'on'
+
+/** Which dimensions "apply to all models" copies from the editor. */
+type ApplyAspects = { input: boolean; capacity: boolean; reasoning: boolean }
+
+/** The aspect checkboxes, in display order. */
+const ASPECTS: ReadonlyArray<{ id: keyof ApplyAspects; label: ParamKey }> = [
+  { id: 'input', label: 'applyAspectInput' },
+  { id: 'capacity', label: 'applyAspectCapacity' },
+  { id: 'reasoning', label: 'applyAspectReasoning' },
+]
 
 /** A General-settings-style dropdown: a selector pill opening a Menu, not a native <select>. */
 function Selector(props: {
@@ -181,7 +194,10 @@ function ProviderParamsLoaded(props: {
 
   // Route-parameter draft: seeded from the selected route, edited per group.
   const [draft, setDraft] = useState<ParamsDraft>(() => paramsDraftOf(undefined))
-  const [activeGroup, setActiveGroup] = useState<GroupId>('reasoning')
+  // Per-model draft (input / caps), seeded with the selected model.
+  const [modelDraft, setModelDraft] = useState<ModelParamsDraft>(() => modelParamsOf(undefined))
+  const [applyAspects, setApplyAspects] = useState<ApplyAspects>({ input: false, capacity: false, reasoning: true })
+  const [activeGroup, setActiveGroup] = useState<GroupId>('permodel')
   const [codeInput, setCodeInput] = useState('')
 
   const activeRoute = routeKey === undefined ? undefined : routes.find(([k]) => k === routeKey)
@@ -216,6 +232,7 @@ function ProviderParamsLoaded(props: {
     const model = models[index]
     const state = effortStateOf(model?.reasoningEfforts)
     setMode(state.kind)
+    setModelDraft(modelParamsOf(model))
     if (state.kind === 'on') {
       setLevels(state.levels)
       setWire(state.wire ?? {})
@@ -240,6 +257,21 @@ function ProviderParamsLoaded(props: {
     setDraft(current => mutate(current))
   }
 
+  /** Tri-state per-model modality toggle: an emptied explicit list clears the
+   * key (the host refuses an empty list), back to "inherit". */
+  const toggleModelModality = (modality: string): void => {
+    setSaved(false)
+    setModelDraft((current) => {
+      const has = current.inputMods.includes(modality)
+      const nextMods = has ? current.inputMods.filter(m => m !== modality) : [...current.inputMods, modality]
+      return {
+        ...current,
+        inputPresent: nextMods.length > 0,
+        inputMods: nextMods.length > 0 ? MODALITIES.filter(m => nextMods.includes(m)) : [],
+      }
+    })
+  }
+
   // A "thinking on" declaration must offer at least one level beyond off, or
   // the adapter refuses it where it is written. The Save gate mirrors that.
   const onHasLevel = levels.size > 0 && (levels.size > 1 || !levels.has('off'))
@@ -248,30 +280,43 @@ function ProviderParamsLoaded(props: {
     : mode === 'off'
       ? false as const
       : undefined
-  const modelDirty = activeModel !== undefined
-    && JSON.stringify(activeModel.reasoningEfforts) !== JSON.stringify(nextDict)
+  const effortDirty = activeModel !== undefined
+    && stable(activeModel.reasoningEfforts) !== stable(nextDict)
 
   // Minimal op set for every managed route-level parameter…
   const routeOps = useMemo(
     () => buildRouteOps(activeRoute?.[1], draft),
     [activeRoute, draft],
   )
-  // …plus the whole-`models`-array op when the selected model's declaration
-  // changed (the host path-op engine cannot address array indices).
-  const modelOps = useMemo(() => {
-    if (activeModel === undefined || modelIndex === undefined || !modelDirty) return []
-    const newModels = models.map(model => ({ ...model }))
-    const entry = newModels[modelIndex]
-    if (nextDict === undefined) {
-      const { reasoningEfforts: _dropped, ...rest } = entry
-      newModels[modelIndex] = rest
-    } else {
-      newModels[modelIndex] = { ...entry, reasoningEfforts: nextDict }
+  // …plus the whole-`models`-array op when the selected model changed: route
+  // the entry through buildModelEntry (input / caps drafts), layer the
+  // reasoning editor on top, and keep the result only when something actually
+  // differs (the host path-op engine cannot address array indices, so the
+  // array is the write unit).
+  const mergedModel = useMemo(() => {
+    if (activeModel === undefined || modelIndex === undefined) return null
+    let entry = buildModelEntry(activeModel, modelDraft)
+    if (effortDirty) {
+      if (nextDict === undefined) {
+        const { reasoningEfforts: _dropped, ...rest } = entry
+        entry = rest
+      } else {
+        entry = { ...entry, reasoningEfforts: nextDict }
+      }
     }
-    return [{ op: 'set' as const, path: ['providers', activeRouteKey ?? '', 'models'], value: newModels }]
-  }, [activeModel, modelIndex, modelDirty, models, nextDict, activeRouteKey])
+    return stable(entry) === stable(activeModel) ? null : entry
+  }, [activeModel, modelIndex, modelDraft, effortDirty, nextDict])
 
-  const issues: FieldIssue[] = useMemo(() => validateParamsDraft(draft), [draft])
+  const modelOps = useMemo(() => {
+    if (mergedModel === null || modelIndex === undefined) return []
+    const newModels = models.map((model, i) => (i === modelIndex ? { ...mergedModel } : { ...model }))
+    return [{ op: 'set' as const, path: ['providers', activeRouteKey ?? '', 'models'], value: newModels }]
+  }, [mergedModel, modelIndex, models, activeRouteKey])
+
+  const issues: FieldIssue[] = useMemo(
+    () => [...validateParamsDraft(draft), ...validateModelParams(modelDraft)],
+    [draft, modelDraft],
+  )
   const canSave = !busy && issues.length === 0 && (routeOps.length > 0 || modelOps.length > 0)
 
   // Empty-state bookkeeping: while the namespace loads, avoid flashing an empty
@@ -314,34 +359,50 @@ function ProviderParamsLoaded(props: {
 
   const save = (): Promise<void> => send([...routeOps, ...modelOps].map(op => ({ ...op }) as SettingsPathOpView))
 
-  /** Whether the "apply to all models" action is available. Requires a selected
-   * model (its declaration is what gets copied) plus a valid mode. */
+  /** Whether the "apply to all models" action is available: a selected model
+   * whose editor state is valid, and at least one dimension checked. */
   const canApplyAll = !busy && activeRouteKey !== undefined && modelIndex !== undefined
     && models.length > 0 && (mode !== 'on' || onHasLevel)
+    && (applyAspects.input || applyAspects.capacity || applyAspects.reasoning)
 
   /**
-   * Apply the current model's reasoning declaration (inherit / false / levels +
-   * wire spellings) to EVERY model on the route, writing the whole models array
-   * (path ops cannot address array indices).
+   * Copy the CHECKED dimensions of the current model's editor into every model
+   * on the route (the whole `models` array is the write unit). Unchecked
+   * dimensions keep each model's own declaration.
    */
   const applyToAll = async (): Promise<void> => {
     if (api === undefined || activeRouteKey === undefined) return
     setBusy(true)
     setFailure(undefined)
-    const next = mode === 'inherit'
-      ? undefined
+    const nextAll = mode === 'on'
+      ? wireOf(levels, wire, offEmpty)
       : mode === 'off'
-        ? false
-        : wireOf(levels, wire, offEmpty)
+        ? false as const
+        : undefined
     const newModels = models.map((model) => {
-      const entry = { ...model }
-      if (next === undefined) {
-        const { reasoningEfforts: _dropped, ...rest } = entry
-        return rest
+      let entry: Record<string, unknown> = { ...model }
+      if (applyAspects.input) {
+        if (modelDraft.inputPresent && modelDraft.inputMods.length > 0) {
+          entry.input = MODALITIES.filter(m => modelDraft.inputMods.includes(m))
+        } else {
+          delete entry.input
+        }
       }
-      return { ...entry, reasoningEfforts: next }
+      if (applyAspects.capacity) {
+        const cw = parseNumber(modelDraft.contextWindow)
+        if (modelDraft.contextWindow.trim() !== '' && cw !== undefined) entry.contextWindow = cw
+        else delete entry.contextWindow
+        const mt = parseNumber(modelDraft.maxTokens)
+        if (modelDraft.maxTokens.trim() !== '' && mt !== undefined) entry.maxTokens = mt
+        else delete entry.maxTokens
+      }
+      if (applyAspects.reasoning) {
+        if (nextAll === undefined) delete entry.reasoningEfforts
+        else entry.reasoningEfforts = nextAll
+      }
+      return entry
     })
-    if (JSON.stringify(models) === JSON.stringify(newModels)) {
+    if (stable(models) === stable(newModels)) {
       setBusy(false)
       return
     }
@@ -351,7 +412,7 @@ function ProviderParamsLoaded(props: {
   const writable = raw?.writable !== false
   const issueLine = (found: FieldIssue): string => `${t(found.field as ParamKey)} ${t(found.kind as ParamKey)}`
 
-  const renderReasoning = (): ReactNode => (
+  const renderPerModel = (): ReactNode => (
     <>
       <div className="mr-field">
         <label className="mr-label">{t('routeDefault')}</label>
@@ -402,8 +463,51 @@ function ProviderParamsLoaded(props: {
         : (
           <fieldset className="mr-panel">
             <legend className="mr-panel-title">
-              {`${t('modelEfforts')} — ${activeModel.name ?? activeModel.id ?? modelIndex}`}
+              {activeModel.name ?? activeModel.id ?? `#${modelIndex}`}
             </legend>
+            <div className="mr-field">
+              <Tooltip label={t('modelInputTip')} side="top">
+                <span className="mr-label">{t('modelInputLabel')}</span>
+              </Tooltip>
+              <div className="mr-mode-row">
+                {MODALITIES.map(modality => (
+                  <label key={modality} className="mr-radio-row">
+                    <input
+                      type="checkbox"
+                      checked={modelDraft.inputMods.includes(modality)}
+                      disabled={!writable}
+                      onChange={() => { toggleModelModality(modality) }}
+                    />
+                    {t(`modality_${modality}` as ParamKey)}
+                  </label>
+                ))}
+              </div>
+              {!modelDraft.inputPresent ? <div className="mr-wire-title">{t('inheritHint')}</div> : null}
+            </div>
+
+            <div className="mr-field">
+              <div className="mr-wire-title">{t('modelCapacityTitle')}</div>
+              <div className="mr-grid">
+                <NumberField
+                  label={t('contextWindow')}
+                  tip={t('contextWindowTip')}
+                  value={modelDraft.contextWindow}
+                  placeholder={t('inheritHint')}
+                  disabled={!writable}
+                  onChange={(next) => { setSaved(false); setModelDraft(c => ({ ...c, contextWindow: next })) }}
+                />
+                <NumberField
+                  label={t('maxTokens')}
+                  tip={t('maxTokensTip')}
+                  value={modelDraft.maxTokens}
+                  placeholder={t('inheritHint')}
+                  disabled={!writable}
+                  onChange={(next) => { setSaved(false); setModelDraft(c => ({ ...c, maxTokens: next })) }}
+                />
+              </div>
+            </div>
+
+            <div className="mr-wire-title">{t('modelEfforts')}</div>
             <div className="mr-mode-row">
               <Tooltip label={t('modeInheritTip')} side="bottom">
                 <label className="mr-radio-row">
@@ -728,6 +832,7 @@ function ProviderParamsLoaded(props: {
     const modsActive = new Set(draft.inputMods)
     return (
       <>
+        <div className="mr-wire-title">{t('fallbackTitle')}</div>
         <div className="mr-grid">
           <NumberField
             label={t('defaultContextWindow')}
@@ -794,7 +899,7 @@ function ProviderParamsLoaded(props: {
   }
 
   const panels: Record<GroupId, () => ReactNode> = {
-    reasoning: renderReasoning,
+    permodel: renderPerModel,
     retry: renderRetry,
     timeouts: renderTimeouts,
     cache: renderCache,
@@ -853,7 +958,6 @@ function ProviderParamsLoaded(props: {
                           <Tooltip label={t(SCOPE[activeGroup].tip)} side="top">
                             <span className="mr-scopechip">{t(SCOPE[activeGroup].chip)}</span>
                           </Tooltip>
-                          <span className="mr-scopetip">{t(SCOPE[activeGroup].tip)}</span>
                         </div>
                         {panels[activeGroup]()}
                       </div>
@@ -867,6 +971,21 @@ function ProviderParamsLoaded(props: {
                 {failure !== undefined ? <p className="mr-error">{failure}</p> : null}
 
                 <div className="mr-actions">
+                  {activeModel !== undefined ? (
+                    <div className="mr-inline mr-aspects">
+                      {ASPECTS.map(aspect => (
+                        <label key={aspect.id} className="mr-radio-row">
+                          <input
+                            type="checkbox"
+                            checked={applyAspects[aspect.id]}
+                            disabled={busy || !writable}
+                            onChange={() => { setApplyAspects(s => ({ ...s, [aspect.id]: !s[aspect.id] })) }}
+                          />
+                          {t(aspect.label)}
+                        </label>
+                      ))}
+                    </div>
+                  ) : null}
                   <Button variant="primary" size="md" disabled={!canSave} onClick={() => { void save() }}>
                     {t('save')}
                   </Button>

@@ -26,13 +26,17 @@ built-in Models page. Pick any provider route — every entry in the `llm-pi-ai`
 `providers` dict is editable here, catalog routes included — and manage it in
 five parameter groups:
 
-- **Reasoning**: the route default thinking level (`providers.<route>.reasoning`)
-  and, for routes carrying an explicit `models` list, each model's declaration:
-  inherit / non-reasoning (`false`) / reasoning with a level set
-  (`reasoningEfforts`) over the canonical levels
-  `off minimal low medium high xhigh max`. A display-only search filter narrows
-  long model lists by name / id without touching the stored order or the write
-  path.
+- **Per model** — for routes carrying an explicit `models` list, edit the
+  SELECTED model's own declaration: input modalities (`text`/`image`, so a
+  text-only model stays text-only beside its vision siblings), context and
+  output caps (`contextWindow`, `maxTokens`), and thinking levels
+  (`reasoningEfforts`: inherit / non-reasoning / a level set over `off minimal
+  low medium high xhigh max`) with custom wire spelling per level. A
+  display-only search filter narrows long model lists by name / id without
+  touching the stored order or write path. **Apply to all models** copies only
+  the CHECKED dimensions from the editor to every model on the route, plus the
+  route default thinking level (`providers.<route>.reasoning`) that unset
+  models inherit.
 - **Retry & backoff**: `retryPolicy.mode` (`normal` bounded transient retries vs
   `always` unbounded retries), `maxRetries`, `retryableCodes` (the five stable
   preset codes plus custom entries), and the shared exponential backoff
@@ -44,15 +48,19 @@ five parameter groups:
 - **Caching & thinking budgets**: `cacheRetention`
   (`none/short/long`) and `thinkingBudgets` token budgets per level
   (`minimal/low/medium/high`).
-- **Capacities & request budgets**: `defaultContextWindow`,
-  `defaultMaxTokens`, `defaultInput` modalities (`text/image`), and the
-  per-request image payload caps (`maxRequestImageBytes`,
+- **Capacities & budgets**: `defaultContextWindow`,
+  `defaultMaxTokens`, `defaultInput` modalities (`text/image`) — these three
+  are FALLBACKS read only by models that declare nothing of their own (set the
+  real values per model in the **Per model** tab) — plus the per-request image
+  payload caps (`maxRequestImageBytes`,
   `requestImagePixelBudget`, `requestImageMaxBytes`).
 
-Every group's panel states its **scope** up front: everything except Reasoning
-is ONE route-wide value shared by every model (the pi-ai schema defines those
-fields at route level only); Reasoning combines a route default with per-model
-overrides.
+Every group's panel opens with a **scope badge**: 「按模型 / Per model」 writes
+into the selected model's own declaration, and a dimension you leave unset
+inherits the route fallback or catalog value; the four other groups are 「整条
+路由 / Whole route」 — those fields exist ONLY at route level in the llm-pi-ai
+schema, so one shared value is the whole truth (the badge's hover tooltip says
+so; no duplicate text sits beside it).
 
 Every field shows the effective adapter default as its placeholder while unset;
 clearing a field removes the override instead of writing an echo of the default.

@@ -63,6 +63,12 @@ export interface PiAiModel {
   id?: string
   name?: string
   reasoningEfforts?: unknown
+  /** Per-model request modalities; absent = inherit route default / catalog. */
+  input?: unknown
+  /** Per-model context capacity; absent = inherit the route fallback. */
+  contextWindow?: unknown
+  /** Per-model output capability; absent = inherit the route fallback. */
+  maxTokens?: unknown
 }
 
 export interface PiAiRetryBackoff {
@@ -427,6 +433,73 @@ export function buildRouteOps(current: PiAiRoute | undefined, draft: ParamsDraft
   pushScalar('thinkingBudgets', budgetsWireOf(draft.budgets), cur.thinkingBudgets)
   pushScalar('retryPolicy', retryWireOf(draft.retry), cur.retryPolicy)
   return ops
+}
+
+/* ------------------------------------------------------------------ */
+/* Per-MODEL parameter drafts (input / contextWindow / maxTokens).     */
+/* ------------------------------------------------------------------ */
+
+/** Editable per-model declaration beside the reasoning editor. */
+export interface ModelParamsDraft {
+  /** Tri-state modalities: absent key vs an explicit (non-empty) list. */
+  inputPresent: boolean
+  inputMods: string[]
+  /** '' = unset (inherit the route fallback). */
+  contextWindow: string
+  maxTokens: string
+}
+
+/** Seed the per-model draft from a stored models[] entry. */
+export function modelParamsOf(entry: PiAiModel | undefined): ModelParamsDraft {
+  const draft: ModelParamsDraft = { inputPresent: false, inputMods: [], contextWindow: '', maxTokens: '' }
+  if (entry === undefined) return draft
+  if (Array.isArray(entry.input)) {
+    draft.inputPresent = true
+    draft.inputMods = entry.input.filter((m): m is string => typeof m === 'string')
+  }
+  draft.contextWindow = numberText(entry.contextWindow)
+  draft.maxTokens = numberText(entry.maxTokens)
+  return draft
+}
+
+/** Validate the per-model draft where the host would refuse the entry. */
+export function validateModelParams(draft: ModelParamsDraft): FieldIssue[] {
+  const issues: FieldIssue[] = []
+  const cap = (field: string, text: string): FieldIssue | undefined => {
+    if (text.trim() === '') return undefined
+    const value = parseNumber(text)
+    if (value === undefined) return issue(field, 'errNumber')
+    if (!Number.isSafeInteger(value) || value < 1) return issue(field, 'errPositiveInt')
+    return undefined
+  }
+  const cw = cap('contextWindow', draft.contextWindow)
+  if (cw !== undefined) issues.push(cw)
+  const mt = cap('maxTokens', draft.maxTokens)
+  if (mt !== undefined) issues.push(mt)
+  return issues
+}
+
+/**
+ * Merge the per-model draft into a COPY of the stored entry: set/unset each
+ * editable field per the tri-state rules (an emptied modality list clears the
+ * key — the host refuses an empty list — while blank numbers clear theirs).
+ * `id` and `name` pass through untouched; reasoningEfforts is handled by the
+ * caller, which owns that editor's state.
+ */
+export function buildModelEntry(base: PiAiModel, draft: ModelParamsDraft): PiAiModel {
+  const next: PiAiModel = { ...base }
+  if (draft.inputPresent && draft.inputMods.length > 0) {
+    next.input = MODALITIES.filter(m => draft.inputMods.includes(m))
+  } else {
+    delete next.input
+  }
+  const cw = parseNumber(draft.contextWindow)
+  if (draft.contextWindow.trim() !== '' && cw !== undefined) next.contextWindow = cw
+  else delete next.contextWindow
+  const mt = parseNumber(draft.maxTokens)
+  if (draft.maxTokens.trim() !== '' && mt !== undefined) next.maxTokens = mt
+  else delete next.maxTokens
+  return next
 }
 
 /* ------------------------------------------------------------------ */

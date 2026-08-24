@@ -71,7 +71,6 @@ export const REASONING_STYLES = `
   color: var(--dsw-alias-label-secondary);
   white-space: nowrap;
 }
-.mr-scopetip { font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-tertiary); }
 /* Empty state: dashed placeholder box matching the built-in Models form's
    empty catalog (modelEmpty: dashed border-l3, centered, tertiary label). */
 .mr-empty {

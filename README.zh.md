@@ -21,10 +21,14 @@
 选择任意提供方路由——`llm-pi-ai` 的 `providers` 字典里的每个条目都可以在这里编辑，
 包括目录路由——在五个参数组里进行管理：
 
-- **推理强度**：路由默认思考等级（`providers.<route>.reasoning`）；对带显式
-  `models` 列表的路由，还可逐模型选择 **继承 / 不思考（`false`）/ 思考并选择等级
-  集合**（`reasoningEfforts`），勾选标准等级 `off minimal low medium high xhigh max`。模型下拉框上方有仅影响展示的**搜索过滤框**，按名称 / id
-  筛选长列表，不改变存储顺序，也不触碰写入路径。
+- **按模型**——对带显式 `models` 列表的路由，直接编辑所选模型自己的声明：输入模态
+  （`text`/`image`，让纯文本模型与视觉模型在同一提供方下各自声明真实能力）、上下文
+  与输出上限（`contextWindow`、`maxTokens`）、思考等级（`reasoningEfforts`：
+  继承 / 不思考 / 在 `off minimal low medium high xhigh max` 中勾选集合）及每等级
+  自定义线上拼写。模型下拉框上方有仅影响展示的**搜索过滤框**，按名称 / id
+  筛选长列表，不改变存储顺序，也不触碰写入路径。**应用到所有模型**只把勾选的维度
+  （模态 / 上限 / 推理）从编辑器复制到该路由的所有模型；本组还含未设置模型继承的
+  路由默认思考等级（`providers.<route>.reasoning`）。
 - **重试与退避**：`retryPolicy.mode`（`normal` 有界瞬时重试 vs `always` 无限重试）、
   `maxRetries`、`retryableCodes`（五个稳定预设码 + 自定义码）、以及两种模式共享的
   指数退避（`initialDelayMs`、`maxDelayMs`、`jitterRatio`）。未设置的值回退到适配器
@@ -35,12 +39,14 @@
 - **缓存与思考预算**：`cacheRetention`（`none/short/long`）和各等级的
   `thinkingBudgets` token 预算（`minimal/low/medium/high`）。
 - **容量与请求预算**：`defaultContextWindow`、`defaultMaxTokens`、`defaultInput`
-  模态（`text/image`），以及单请求图片负载上限（`maxRequestImageBytes`、
+  模态（`text/image`）——这三项是**回退值**，只被自身未声明的模型读取（真实值请在
+  「按模型」页签里逐模型设置）——以及单请求图片负载上限（`maxRequestImageBytes`、
   `requestImagePixelBudget`、`requestImageMaxBytes`）。
 
-每个参数组面板顶部都标明**作用范围**：除「推理强度」外，其余各组都是该路由统一
-一份值、所有模型共享（pi-ai schema 只在路由级定义它们）；「推理强度」则是路由默认
-+ 可按模型单独覆盖。
+每个参数组面板顶部都有**作用范围徽标**：「按模型」写入所选模型自己的声明，留空的
+维度继承路由回退值或目录声明；其余四组是「整条路由」——这些字段在 llm-pi-ai 的
+schema 里只存在于路由级，一份共享值就是全部事实（悬停徽标的 tooltip 会说明，
+旁边不重复展示文字）。
 
 每个字段未设置时以占位符显示生效的适配器默认值；清空字段即移除该覆盖项，而不会把
 默认值回写一遍。本地校验镜像 host 自身的解析规则，大多数错误在写入前就会被拦下；
