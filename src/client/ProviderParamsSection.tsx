@@ -88,6 +88,95 @@ const ASPECTS: ReadonlyArray<{ id: keyof ApplyAspects; label: ParamKey }> = [
   { id: 'reasoning', label: 'applyAspectReasoning' },
 ]
 
+/**
+ * One-control searchable select: the trigger pill opens a panel whose FIRST
+ * element is the filter input — searching never leaves the control. Built on
+ * raw elements because ui-primitives' Menu has no content slot for an input,
+ * and an <input> inside its row <button> would swallow clicks/focus.
+ */
+function SearchSelect(props: {
+  value: string
+  options: ReadonlyArray<{ id: string; label: string }>
+  onChange: (id: string) => void
+  placeholder: string
+  searchPlaceholder: string
+  emptyText: string
+  disabled?: boolean
+}): ReactNode {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: PointerEvent): void => {
+      if (!(e.target instanceof Node)) return
+      if (rootRef.current?.contains(e.target) === true) return
+      setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  const matched = props.options.find(o => o.id === props.value)
+  const needle = query.trim().toLowerCase()
+  const shown = needle === ''
+    ? props.options
+    : props.options.filter(o => o.label.toLowerCase().includes(needle))
+
+  return (
+    <div className="mr-sselect" ref={rootRef}>
+      <button
+        type="button"
+        className="mr-selector"
+        disabled={props.disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => { setOpen(v => !v); setQuery('') }}
+      >
+        <span className={matched === undefined ? 'mr-selector-label mr-selector-placeholder' : 'mr-selector-label'}>
+          {matched === undefined ? props.placeholder : matched.label}
+        </span>
+        <IconChevronDownOutline14 className="mr-chevron" />
+      </button>
+      {open && (
+        <div className="mr-sselect-panel" role="listbox">
+          <Input
+            autoFocus
+            className="mr-search"
+            value={query}
+            placeholder={props.searchPlaceholder}
+            onChange={(e) => { setQuery(e.target.value) }}
+          />
+          <div className="mr-sselect-list">
+            {shown.length === 0
+              ? <p className="mr-hint">{props.emptyText}</p>
+              : shown.map(option => (
+                <button
+                  key={option.id}
+                  type="button"
+                  role="option"
+                  aria-selected={option.id === props.value}
+                  className={`mr-sselect-item${option.id === props.value ? ' mr-sselect-item-active' : ''}`}
+                  onClick={() => { props.onChange(option.id); setOpen(false) }}
+                >
+                  {option.label}
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 /** A General-settings-style dropdown: a selector pill opening a Menu, not a native <select>. */
 function Selector(props: {
   value: string
@@ -183,7 +272,6 @@ function ProviderParamsLoaded(props: {
 
   const [routeKey, setRouteKey] = useState<string | undefined>(undefined)
   const [modelIndex, setModelIndex] = useState<number | undefined>(undefined)
-  const [modelQuery, setModelQuery] = useState('')
   const [mode, setMode] = useState<EffortMode>('inherit')
   const [levels, setLevels] = useState<ReadonlySet<ReasoningLevel>>(new Set(['high']))
   const [wire, setWire] = useState<Record<string, string>>({})
@@ -204,21 +292,10 @@ function ProviderParamsLoaded(props: {
   const activeRouteKey = activeRoute?.[0]
   const models = activeRoute?.[1]?.models ?? []
   const activeModel = modelIndex === undefined ? undefined : models[modelIndex]
-  // Display-layer search filter for the model selector: matches against the
-  // name / id / ordinal, keeps the original declaration order, and never
-  // touches the stored `models` array or the write path.
-  const query = modelQuery.trim().toLowerCase()
-  const filteredModels = query === ''
-    ? models.map((model, index) => ({ model, index }))
-    : models
-        .map((model, index) => ({ model, index }))
-        .filter(({ model, index }) =>
-          `${model.name ?? ''} ${model.id ?? ''} ${String(index)}`.toLowerCase().includes(query))
 
   const pickRoute = (key: string): void => {
     setRouteKey(key)
     setModelIndex(undefined)
-    setModelQuery('')
     setCodeInput('')
     setSaved(false)
     setFailure(undefined)
@@ -437,24 +514,15 @@ function ProviderParamsLoaded(props: {
           : (
             <div className="mr-field">
               <label className="mr-label">{t('modelLabel')}</label>
-              <Input
-                className="mr-search"
-                value={modelQuery}
-                placeholder={t('modelSearchPlaceholder')}
+              <SearchSelect
+                value={modelIndex === undefined ? '' : String(modelIndex)}
+                options={models.map((model, index) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
+                onChange={(id) => { pickModel(Number(id)) }}
+                placeholder={t('modelUnset')}
+                searchPlaceholder={t('modelSearchPlaceholder')}
+                emptyText={t('modelSearchEmpty')}
                 disabled={!writable}
-                onChange={(e) => { setModelQuery(e.target.value) }}
               />
-              {filteredModels.length === 0
-                ? <p className="mr-hint">{t('modelSearchEmpty')}</p>
-                : (
-                  <Selector
-                    value={modelIndex === undefined ? '' : String(modelIndex)}
-                    placeholder={t('modelUnset')}
-                    disabled={!writable}
-                    options={filteredModels.map(({ model, index }) => ({ id: String(index), label: model.name ?? model.id ?? String(index) }))}
-                    onChange={(id) => { pickModel(Number(id)) }}
-                  />
-                )}
             </div>
           )}
 

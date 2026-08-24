@@ -53,11 +53,35 @@ export const REASONING_STYLES = `
 .mr-wire-off { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 18px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
 .mr-wire-off input[type='checkbox'] { accent-color: var(--dsw-alias-button-primary-fill); }
 .mr-wire-input { width: 200px; }
-/* Model search filter above the model selector; matches the built-in field
-   input width so the dropdown sits under a same-sized box. display:flex
-   promotes the Input's inline-flex wrap to its own block line — left as an
-   inline box it flowed BESIDE the Menu anchor button below it, glued. */
-.mr-search { display: flex; width: 280px; margin-bottom: 8px; }
+/* Fused searchable select (per-model picker): trigger pill + dropdown panel
+   whose first element is the filter input — one control, no separate search
+   box beside or above it. */
+.mr-sselect { position: relative; display: inline-block; max-width: 100%; }
+.mr-sselect-panel {
+  position: absolute; z-index: 30;
+  top: calc(100% + 4px); left: 0;
+  min-width: 260px; width: max-content; max-width: min(360px, calc(100vw - 32px));
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+/* The filter input inside the fused panel: full panel width, own block line. */
+.mr-search { display: flex; width: 100%; }
+.mr-sselect-list {
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 220px; overflow-y: auto;
+}
+.mr-sselect-item {
+  padding: 6px 10px; border: none; border-radius: 6px;
+  background: transparent; text-align: left;
+  font: inherit; font-size: 13px; line-height: 20px;
+  color: var(--dsw-alias-label-primary); cursor: pointer;
+}
+.mr-sselect-item:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+.mr-sselect-item-active { background: var(--dsw-alias-bg-module-platform); }
 /* Per-group scope badge row: states whether the group is one route-wide value
    or a route default with per-model overrides. */
 .mr-scoperow { display: flex; align-items: center; gap: 8px; min-width: 0; }

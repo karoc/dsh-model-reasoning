@@ -31,9 +31,10 @@ five parameter groups:
   text-only model stays text-only beside its vision siblings), context and
   output caps (`contextWindow`, `maxTokens`), and thinking levels
   (`reasoningEfforts`: inherit / non-reasoning / a level set over `off minimal
-  low medium high xhigh max`) with custom wire spelling per level. A
-  display-only search filter narrows long model lists by name / id without
-  touching the stored order or write path. **Apply to all models** copies only
+  low medium high xhigh max`) with custom wire spelling per level. The picker
+  fuses search into the dropdown itself — open it and type to narrow long model
+  lists by name / id (display-only; stored order and write path untouched).
+  **Apply to all models** copies only
   the CHECKED dimensions from the editor to every model on the route, plus the
   route default thinking level (`providers.<route>.reasoning`) that unset
   models inherit.

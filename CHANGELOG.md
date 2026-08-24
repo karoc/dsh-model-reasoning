@@ -80,9 +80,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Input primitive's intrinsic width inside their track instead of stretching
   edge-to-edge (which left only the raw column gap between the two columns'
   borders), and the column gap widened to 24px.
-- **The model search input no longer shares a line with the model selector.**
-  The search box is promoted to its own block line above the selector — left as
-  an inline box it flowed BESIDE the Menu anchor button, glued to it.
+- **The model picker fuses search into the dropdown.** The per-model selector
+  is a dedicated searchable listbox — the filter is the panel's first element,
+  so there is no separate search box beside or above the trigger
+  (ui-primitives' Menu has no content slot for an input, hence the small
+  purpose-built panel with outside-click and Escape closing).
 - **Post-publish check now tolerates registry eventual consistency.** Right
   after upload, `npm view @<version>` can 404 for a few seconds while the index
   catches up, which made `postpublish` falsely report problems for a successful
