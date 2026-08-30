@@ -97,6 +97,8 @@ hinted while the settings document loads.
 
 **Prerequisites:** a DeepSeek Harness install with the `dsh` CLI, plus [pnpm](https://pnpm.io) (the `dsh plugin` command runs pnpm under the hood). This is an installable **bundle** — it is loaded by `dsh`, not imported as a library.
 
+**Compatibility:** since v0.2.2 the page writes through the settings **Remote** namespace dsh 0.1.2 introduced (`ctx.remote.settings`); dsh builds older than 0.1.2 (the `connection.api` RPC face) are not supported.
+
 ### From npm (recommended)
 
 The package is published to npm as `dsh-model-reasoning`:

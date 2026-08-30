@@ -75,6 +75,8 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 
 **前置要求：** 已安装带 `dsh` CLI 的 DeepSeek Harness，以及 [pnpm](https://pnpm.io)（`dsh plugin` 命令底层调用 pnpm）。这是一个可安装的 **bundle**——由 `dsh` 加载，不是当作库 import。
 
+**兼容性：** 自 v0.2.2 起，本页面通过 dsh 0.1.2 引入的 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.2 的 dsh 构建（`connection.api` RPC 面）不受支持。
+
 ### 从 npm 安装（推荐）
 
 包已发布到 npm，名为 `dsh-model-reasoning`：
