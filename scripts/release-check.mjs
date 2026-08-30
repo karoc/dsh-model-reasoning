@@ -165,13 +165,18 @@ if (stale.length > 0) {
 // the built-in fetch. `npm view <pkg>@<unpublished>` is functionally correct
 // but prints a 9-line E404 error block on every call (prepublishOnly + prepack
 // = two blocks per publish), so a SUCCESSFUL publish showed "满屏错误 + ✅".
-// Only an explicit HTTP 200 means "already published"; 404 and network
-// failure both mean "not published / index unreachable".
+// The FULL package document (`/<pkg>`) is probed, not the version endpoint:
+// that endpoint intermittently answers HTTP 406 for the abbreviated-metadata
+// accept header even for published versions, which would misread an
+// already-published version as "safe to publish". Only an explicit
+// `versions[<version>]` entry means "already published"; 404/network failure
+// both mean "not published / index unreachable".
 try {
-  const probe = await fetch(`https://registry.npmjs.org/dsh-model-reasoning/${version}`, {
-    headers: { accept: 'application/vnd.npm.install-v1+json' },
-  })
-  if (probe.status === 200) {
+  const probe = await fetch(`https://registry.npmjs.org/${encodeURIComponent('dsh-model-reasoning')}`)
+  const index = probe.status === 200 ? await probe.json() : undefined
+  const published = index !== undefined && typeof index.versions === 'object'
+    && index.versions !== null && index.versions[version] !== undefined
+  if (published) {
     fail(`version ${version} is already published on npm — bump the version`)
   } else {
     console.log(`release-check: ${version} is NOT published yet — safe to publish`)

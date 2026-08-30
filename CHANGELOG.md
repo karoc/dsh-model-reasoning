@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [Unreleased]
+
+### Fixed
+
+- **Release-tooling probes no longer trust the version endpoint.** The
+  registry's `/<pkg>/<version>` endpoint intermittently answers HTTP 406 for
+  the abbreviated-metadata accept header even for long-published versions —
+  during the 0.2.2 publish it returned 406 for the whole postpublish poll
+  window, so a SUCCESSFUL publish was reported as "did not become visible"
+  (npm publish exited 1 despite the release being live). Both
+  `post-publish-check.mjs` and `release-check.mjs` now probe the FULL package
+  document (`/<pkg>`) and judge by the presence of `versions[<version>]`; the
+  version endpoint is no longer used. This also closes a latent release-check
+  hole: an already-published version could previously be misread as "safe to
+  publish" on a 406.
+
 ## [0.2.2] - 2026-08-31
 
 ### Fixed

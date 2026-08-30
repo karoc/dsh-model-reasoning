@@ -39,12 +39,16 @@ const problems = []
 
 console.log(`post-publish-check: ${name}@${version}`)
 
-/** The registry's JSON document for one version, or null when not visible yet. */
-async function fetchVersionDoc() {
+/** The registry's full package document, or null when unreachable/absent. The
+ * version must be read from `versions[version]` in this doc rather than from
+ * the version endpoint (`/<pkg>/<version>`): that endpoint intermittently
+ * answers HTTP 406 for the abbreviated-metadata accept header even for long
+ * published versions, which turned a successful publish into a false
+ * "not visible" alarm (dsh-model-reasoning 0.2.2 实录). The full doc endpoint
+ * serves plain JSON reliably and is the index `npm view` reads. */
+async function fetchIndexDoc() {
   try {
-    const response = await fetch(`${REGISTRY}/${encodeURIComponent(name)}/${version}`, {
-      headers: { accept: 'application/vnd.npm.install-v1+json' },
-    })
+    const response = await fetch(`${REGISTRY}/${encodeURIComponent(name)}`)
     if (response.status !== 200) return null
     return await response.json()
   } catch {
@@ -54,14 +58,16 @@ async function fetchVersionDoc() {
 
 // Poll until the published version is visible in the registry index.
 const POLL_INTERVAL_MS = 3000
-const POLL_ATTEMPTS = 14 // up to ~42s of waiting
-let doc = await fetchVersionDoc()
-for (let attempt = 1; doc === null && attempt <= POLL_ATTEMPTS; attempt += 1) {
+const POLL_ATTEMPTS = 20 // up to ~60s of waiting
+let doc = await fetchIndexDoc()
+let versionDoc = doc?.versions?.[version]
+for (let attempt = 1; versionDoc === undefined && attempt <= POLL_ATTEMPTS; attempt += 1) {
   console.log(`post-publish-check: not visible yet — index catching up; retry ${attempt}/${POLL_ATTEMPTS}`)
   await sleep(POLL_INTERVAL_MS)
-  doc = await fetchVersionDoc()
+  doc = await fetchIndexDoc()
+  versionDoc = doc?.versions?.[version]
 }
-if (doc === null) {
+if (versionDoc === undefined) {
   console.error(`\n⚠️  ${name}@${version} did not become visible on the registry after `
     + `${Math.round((POLL_ATTEMPTS * POLL_INTERVAL_MS) / 1000)}s of polling.`)
   console.error('   The publish may have failed before the upload completed, or the index')
@@ -91,7 +97,7 @@ if (latest === version) console.log('✅ dist-tags.latest matches the published 
 // can spray errors of its own.
 const EXPECTED = ['lib/index.js', 'lib/client.js', 'cordis.patch.yml', 'README.md', 'README.zh.md', 'LICENSE', 'package.json']
 try {
-  const tarballUrl = doc?.dist?.tarball
+  const tarballUrl = versionDoc?.dist?.tarball
   if (typeof tarballUrl !== 'string' || tarballUrl.length === 0) throw new Error('registry returned no tarball URL')
   const response = await fetch(tarballUrl)
   if (!response.ok) throw new Error(`tarball download failed with HTTP ${response.status}`)
