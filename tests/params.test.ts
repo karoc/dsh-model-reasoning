@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   EFFECTIVE_DEFAULTS,
+  anchoredRouteOps,
   buildModelEntry,
   buildRouteOps,
   effortStateOf,
@@ -155,6 +156,26 @@ describe('buildRouteOps', () => {
       },
     }
     assert.deepEqual(buildRouteOps(route, paramsDraftOf(route)), [])
+  })
+})
+
+describe('anchoredRouteOps', () => {
+  it('prefixes every route-relative op with providers.<routeKey>', () => {
+    const draft = emptyParamsDraft()
+    draft.numbers.timeoutMs = '45000'
+    const ops = anchoredRouteOps('jun', undefined, draft)
+    assert.deepEqual(ops, [{ op: 'set', path: ['providers', 'jun', 'timeoutMs'], value: 45000 }])
+  })
+
+  it('anchors unset ops the same way', () => {
+    const route: PiAiRoute = { timeoutMs: 123 }
+    const ops = anchoredRouteOps('jun', route, emptyParamsDraft())
+    assert.deepEqual(ops, [{ op: 'unset', path: ['providers', 'jun', 'timeoutMs'] }])
+  })
+
+  it('emits nothing for a no-diff draft', () => {
+    const route: PiAiRoute = { timeoutMs: 123 }
+    assert.deepEqual(anchoredRouteOps('jun', route, paramsDraftOf(route)), [])
   })
 })
 

@@ -20,13 +20,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import type {
-  IApiClient, SettingsPathOpView, SettingsScope, SettingsScopeSnapshot,
+  RemoteResult, SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
+import type { JsonValue } from '@deepseek-ai/dsh-util-values'
+import type {
+  SettingsScope, SettingsScopeSnapshot,
+} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   BUDGET_KEYS, CACHE_RETENTIONS, EFFECTIVE_DEFAULTS, MODALITIES,
   NUMBER_FIELDS, REASONING_LEVELS, RETRYABLE_CODE_PRESETS, TRANSPORTS,
-  buildModelEntry, buildRouteOps, effortStateOf, modelParamsOf, parseNumber,
+  anchoredRouteOps, buildModelEntry, effortStateOf, modelParamsOf, parseNumber,
   paramsDraftOf, stable, validateModelParams, validateParamsDraft, wireOf,
 } from './params.ts'
 import type {
@@ -34,10 +38,27 @@ import type {
 } from './params.ts'
 import type { en, ParamKey } from './locales.ts'
 
+/** The settings Remote namespace face this section writes through. */
+export interface SettingsWire {
+  /**
+   * Apply path-addressed edits to one namespace's stored user section
+   * (dsh 0.1.2+ Remote namespace call: positional arguments, `RemoteResult`
+   * settlement).
+   * @param ns - settings namespace identity.
+   * @param ops - ordered path operations against the stored section.
+   * @param expectedRevision - revision the draft was opened at, or undefined to write unfenced.
+   */
+  mutate(
+    ns: string,
+    ops: readonly SettingsPathOpView[],
+    expectedRevision: number | undefined,
+  ): Promise<RemoteResult<SettingsNamespaceView>>
+}
+
 /** Injected dependencies of {@link ProviderParamsSection} (slot `inject` + hooks compartment). */
 export interface ProviderParamsInjected {
   /** Settings wire face (namespace mutation carries revision fencing). */
-  api: Pick<IApiClient, 'settings'>
+  api: SettingsWire
   /** Section copy. */
   t: (key: ParamKey) => string
   /** Bare observable bound into the `useModelReasoning` selector hook. */
@@ -46,7 +67,7 @@ export interface ProviderParamsInjected {
 
 /** Props delivered by the slot outlet: the inject face spread flat (hooks bound). */
 export interface ProviderParamsProps {
-  api?: Pick<IApiClient, 'settings'>
+  api?: SettingsWire
   t?: (key: ParamKey) => string
   useModelReasoning?: (selector: (snapshot: SettingsScopeSnapshot<PiAiSection>) => unknown) => unknown
 }
@@ -260,7 +281,7 @@ export function ProviderParamsSection(props: ProviderParamsProps): ReactNode {
 
 /** The mounted editor (all hooks run unconditionally here). */
 function ProviderParamsLoaded(props: {
-  api: Pick<IApiClient, 'settings'>
+  api: SettingsWire
   t: (key: ParamKey) => string
   useModelReasoning: NonNullable<ProviderParamsProps['useModelReasoning']>
 }): ReactNode {
@@ -360,10 +381,17 @@ function ProviderParamsLoaded(props: {
   const effortDirty = activeModel !== undefined
     && stable(activeModel.reasoningEfforts) !== stable(nextDict)
 
-  // Minimal op set for every managed route-level parameter…
+  // Minimal op set for every managed route-level parameter, anchored under
+  // the selected route: the diff engine emits route-relative paths (see
+  // buildRouteOps), and the host applies ops against the namespace root, so
+  // the route prefix is this component's job. (Missing this anchoring was a
+  // 0.2.0 bug: route saves landed at `llm-pi-ai.<field>` — a location the
+  // schema does not define — and never reached the adapter.)
   const routeOps = useMemo(
-    () => buildRouteOps(activeRoute?.[1], draft),
-    [activeRoute, draft],
+    () => (activeRouteKey === undefined
+      ? []
+      : anchoredRouteOps(activeRouteKey, activeRoute?.[1], draft)),
+    [activeRoute, activeRouteKey, draft],
   )
   // …plus the whole-`models`-array op when the selected model changed: route
   // the entry through buildModelEntry (input / caps drafts), layer the
@@ -418,16 +446,15 @@ function ProviderParamsLoaded(props: {
     if (api === undefined || activeRouteKey === undefined || ops.length === 0) return
     setBusy(true)
     setFailure(undefined)
-    const response = await api.settings.mutate({
-      ns: 'llm-pi-ai',
-      ops,
-      ...(raw?.revision === undefined ? {} : { expectedRevision: raw.revision }),
-    })
+    // dsh 0.1.2+ Remote namespace call: positional arguments, RemoteResult
+    // settlement (`response.ok` / `response.error.code`); the conflict code
+    // is now `settings/conflict` (was `settings-conflict` on the old RPC).
+    const response = await api.mutate('llm-pi-ai', ops, raw?.revision)
     setBusy(false)
-    if (!response.result.ok) {
-      setFailure(response.result.error.code === 'settings-conflict'
+    if (!response.ok) {
+      setFailure(response.error.code === 'settings/conflict'
         ? t('conflict')
-        : response.result.error.message)
+        : response.error.message)
       return
     }
     reseedFrom.current = `${raw?.revision}`
@@ -483,7 +510,7 @@ function ProviderParamsLoaded(props: {
       setBusy(false)
       return
     }
-    await send([{ op: 'set', path: ['providers', activeRouteKey, 'models'], value: newModels }])
+    await send([{ op: 'set', path: ['providers', activeRouteKey, 'models'], value: newModels as JsonValue }])
   }
 
   const writable = raw?.writable !== false

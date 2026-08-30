@@ -9,16 +9,19 @@
  * updates to the repository never touch it.
  */
 
-import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
-import type { ConnectionHandle } from '@deepseek-ai/dsh-api-remotes/client'
-import type { SettingsScope } from '@deepseek-ai/dsh-client-runtime/client'
-// Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry).
+import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry)
+// and the settings-namespace scope contract (SettingsScope).
+import type { SettingsScope } from '@deepseek-ai/dsh-client-ui-settings/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: pulls the renderer's Context merge (ctx.slots) into this program.
+import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import { ProviderParamsSection, type ProviderParamsInjected, type PiAiSection } from './ProviderParamsSection.tsx'
+import { ProviderParamsSection, type ProviderParamsInjected } from './ProviderParamsSection.tsx'
+import type { PiAiSection } from './params.ts'
 // Side-effect import: injects the design-token styles at module evaluation
 // (module-top-level side effects survive tree-shaking, unlike a closure-only
 // call, which rolldown dropped and crashed the whole web client).
@@ -39,8 +42,10 @@ const NS = 'provider-params'
 const PI_AI_NS = 'llm-pi-ai'
 
 /** Required services (cordis fiber inject). The target slot is declared by
- * ui-settings; registration depends on it through `slots.inject()`. */
-export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
+ * ui-settings; registration depends on it through `slots.inject()`. The
+ * `remote.settings` namespace carries this page's writes (dsh 0.1.2+ replaced
+ * the `connection.api` RPC face with the generated Remote namespaces). */
+export const inject = ['slots', 'locale', 'remote', 'remote.settings', 'settingsScope']
 
 /**
  * Register the Provider parameters section once the `settings.section`
@@ -51,11 +56,10 @@ export const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-model-reasoning: copy dictionaries')
 
-  const connection = ctx.get('connection') as ConnectionHandle
   const scope: SettingsScope<PiAiSection> = ctx.settingsScope.bind({ namespace: PI_AI_NS })
   const t = ctx.locale.bind(NS) as ProviderParamsInjected['t']
   const injected = (): ProviderParamsInjected => ({
-    api: connection.api,
+    api: ctx.remote.settings,
     t,
     hooks: { modelReasoning: scope },
   })

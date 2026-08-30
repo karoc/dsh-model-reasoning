@@ -435,6 +435,18 @@ export function buildRouteOps(current: PiAiRoute | undefined, draft: ParamsDraft
   return ops
 }
 
+/**
+ * Anchor {@link buildRouteOps}'s route-relative op paths under
+ * `providers.<routeKey>`: the host settings engine applies path ops against
+ * the namespace root (`llm-pi-ai`), so the route prefix is the caller's job.
+ * Without it a route save lands at `llm-pi-ai.<field>` — a location the
+ * llm-pi-ai schema does not define — and never reaches the adapter.
+ */
+export function anchoredRouteOps(routeKey: string, current: PiAiRoute | undefined, draft: ParamsDraft): ParamOp[] {
+  const anchor = ['providers', routeKey]
+  return buildRouteOps(current, draft).map(op => ({ ...op, path: [...anchor, ...op.path] }))
+}
+
 /* ------------------------------------------------------------------ */
 /* Per-MODEL parameter drafts (input / contextWindow / maxTokens).     */
 /* ------------------------------------------------------------------ */

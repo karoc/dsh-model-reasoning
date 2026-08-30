@@ -11,6 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.2.2] - 2026-08-31
+
+### Fixed
+
+- **Adapted to dsh 0.1.2-alpha.2 (the page was empty).** dsh 0.1.2 removed the
+  `connection.api` RPC face (`IApiClient`) and the `@deepseek-ai/dsh-client-runtime`
+  package; the settings wire is now the generated `ctx.remote.settings` Remote
+  namespace (positional `mutate(ns, ops, expectedRevision)`, `RemoteResult`
+  settlement, conflict code `settings/conflict`). The plugin injected
+  `connection.api` — now `undefined` — so the guarded section rendered `null`
+  and Settings → Provider parameters showed an empty page. The section now
+  writes through `ctx.remote.settings` (`remote.settings` declared in the fiber
+  inject, per the built-in Models page pattern); types moved to their new
+  homes (`ClientContext` from `@deepseek-ai/cordis`, `SettingsScope` /
+  `SettingsScopeSnapshot` from `@deepseek-ai/dsh-client-ui-settings/client`).
+  The `dsh.client.inject` list and tsdown externals drop the removed packages.
+- **Route-level saves now reach the adapter (a 0.2.0 regression).** The route
+  parameter diff engine emits route-relative op paths, but the section passed
+  them to `settings.mutate` unanchored, so every route edit (retry/backoff,
+  timeouts, transport, caching, budgets, route reasoning default) was written
+  to `llm-pi-ai.<field>` — a location the llm-pi-ai schema does not define —
+  and silently never took effect on the adapter. Ops are now anchored under
+  `providers.<routeKey>` (`anchoredRouteOps` in `params.ts`, unit-tested);
+  per-model ops already were.
+
 ## [0.2.1] - 2026-08-24
 
 ### Fixed
