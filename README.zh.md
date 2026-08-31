@@ -1,4 +1,4 @@
-# dsh-model-reasoning
+# DSH Smoothly Model Reasoning（DSH SMR）
 
 [English](README.md) | 简体中文
 
@@ -6,7 +6,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
 [![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
 
-一个**外部** DeepSeek Harness Web 客户端插件：新增一个设置页，管理内置 **Models**
+DSH Smoothly Model Reasoning（**DSH SMR**）是一个**外部** DeepSeek Harness Web
+客户端插件：新增一个设置页，管理内置 **Models**
 页刻意不暴露的提供方路由参数——重试与退避策略、超时、传输方式、缓存、思考预算、
 容量、请求图片预算——以及第三方（pi-ai）提供方的**按模型思考等级（推理强度）**。
 它写入与适配器读取完全一致的 `llm-pi-ai.providers.<route>.*` 字段，无需任何其他

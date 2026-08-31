@@ -1,4 +1,4 @@
-# dsh-model-reasoning
+# DSH Smoothly Model Reasoning (DSH SMR)
 
 English | [简体中文](README.zh.md)
 
@@ -6,7 +6,8 @@ English | [简体中文](README.zh.md)
 [![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
 [![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
 
-An **external** DeepSeek Harness web client plugin: a Settings page that manages
+DSH Smoothly Model Reasoning (**DSH SMR**) is an **external** DeepSeek Harness web
+client plugin: a Settings page that manages
 the provider-route parameters the built-in **Models** page deliberately does not
 expose — retry & backoff policy, timeouts, transport, caching, thinking budgets,
 capacities, request image budgets — plus **per-model thinking levels (reasoning

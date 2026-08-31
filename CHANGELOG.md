@@ -11,7 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## [Unreleased]
+## [0.2.3] - 2026-09-01
+
+### Added
+
+- **Brand name**: DSH Smoothly Model Reasoning (DSH SMR) — used in the README, settings page title, and changelog.
 
 ### Fixed
 

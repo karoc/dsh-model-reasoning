@@ -1,9 +1,9 @@
-/** Copy dictionaries for the Provider parameters settings section. */
+/** Copy dictionaries for the Provider parameters settings section (DSH Smoothly Model Reasoning). */
 
 /** English strings (the key-set source of truth for this pair). */
 export const en = {
   nav: 'Provider parameters',
-  title: 'Provider parameters',
+  title: 'DSH Smoothly Model Reasoning (DSH SMR)',
   intro: 'Manage per-provider and per-model parameters for third-party (pi-ai) providers: reasoning levels, retry and backoff policy, timeouts, transport, caching, capacities. Values are written to llm-pi-ai and picked up by the model picker.',
   readOnly: 'The settings document is read-only in this deployment.',
   conflict: 'Someone else changed these settings while this page was open. Reopen it to edit the current values.',
@@ -126,7 +126,7 @@ export type ParamKey = keyof typeof en
 /** Chinese strings (same keys as {@link en}). */
 export const zh: { [Key in keyof typeof en]: string } = {
   nav: '提供方参数',
-  title: '提供方参数',
+  title: 'DSH Smoothly Model Reasoning（DSH SMR）',
   intro: '管理第三方（pi-ai）提供方的路由级与模型级参数：思考等级、重试与退避策略、超时、传输方式、缓存与容量预算。写入 llm-pi-ai，模型选择器会自动识别。',
   readOnly: '此部署中设置文档为只读。',
   conflict: '页面打开期间有其他人修改了这些设置。请重新打开以编辑当前值。',

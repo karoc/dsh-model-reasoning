@@ -1,12 +1,12 @@
 /**
- * Provider parameters settings plugin, browser half (external, not part of the
- * DSH repository). Registers a Settings page that manages per-provider route
- * parameters (retry & backoff policy, timeouts, transport, caching, thinking
- * budgets, capacities, request image budgets) plus the per-model reasoning
- * declaration for third-party pi-ai providers — writing the same
- * `llm-pi-ai.providers.<route>.*` fields the adapter reads. It rides the same
- * slot + settingsScope seams the built-in Models page uses, so official
- * updates to the repository never touch it.
+ * Provider parameters settings plugin (DSH Smoothly Model Reasoning / DSH SMR),
+ * browser half (external, not part of the DSH repository). Registers a Settings
+ * page that manages per-provider route parameters (retry & backoff policy,
+ * timeouts, transport, caching, thinking budgets, capacities, request image
+ * budgets) plus the per-model reasoning declaration for third-party pi-ai
+ * providers — writing the same `llm-pi-ai.providers.<route>.*` fields the
+ * adapter reads. It rides the same slot + settingsScope seams the built-in
+ * Models page uses, so official updates to the repository never touch it.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
