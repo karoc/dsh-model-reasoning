@@ -1,4 +1,4 @@
-# DSH Smoothly Model Reasoning (DSH SMR)
+# Smoothly Model Reasoning (Smoothly MR)
 
 English | [简体中文](README.zh.md)
 
@@ -6,7 +6,14 @@ English | [简体中文](README.zh.md)
 [![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
 [![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
 
-DSH Smoothly Model Reasoning (**DSH SMR**) is an **external** DeepSeek Harness web
+| Brand | |
+| --- | --- |
+| English brand | **Smoothly** |
+| 中文品牌 | **思磨力** |
+| English product name | **Smoothly Model Reasoning** — short: **Smoothly MR** |
+| 中文产品名 | **思磨力提供方参数** |
+
+Smoothly Model Reasoning (**Smoothly MR** / 思磨力提供方参数) is an **external** DeepSeek Harness web
 client plugin: a Settings page that manages
 the provider-route parameters the built-in **Models** page deliberately does not
 expose — retry & backoff policy, timeouts, transport, caching, thinking budgets,
@@ -22,7 +29,7 @@ updates cannot clobber it.
 
 ## What it manages
 
-A new Settings section, **「提供方参数 / Provider parameters」**, placed after the
+A new Settings section, **「思磨力提供方参数 / Smoothly MR」**, placed after the
 built-in Models page. Pick any provider route — every entry in the `llm-pi-ai`
 `providers` dict is editable here, catalog routes included — and manage it in
 five parameter groups:
@@ -108,7 +115,7 @@ The package is published to npm as `dsh-model-reasoning`:
 dsh plugin --profile web add dsh-model-reasoning
 ```
 
-This installs the prebuilt bundle and appends it to the `web` profile. Then **restart `dsh web`** and open **Settings → 提供方参数 / Provider parameters**.
+This installs the prebuilt bundle and appends it to the `web` profile. Then **restart `dsh web`** and open **Settings → 思磨力提供方参数 / Smoothly MR**.
 
 ### From git
 

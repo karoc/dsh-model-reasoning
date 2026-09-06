@@ -1,4 +1,4 @@
-# DSH Smoothly Model Reasoning（DSH SMR）
+# 思磨力提供方参数（Smoothly MR）
 
 [English](README.md) | 简体中文
 
@@ -6,7 +6,14 @@
 [![npm downloads](https://img.shields.io/npm/dm/dsh-model-reasoning.svg)](https://www.npmjs.com/package/dsh-model-reasoning)
 [![license MIT](https://img.shields.io/npm/l/dsh-model-reasoning.svg)](LICENSE)
 
-DSH Smoothly Model Reasoning（**DSH SMR**）是一个**外部** DeepSeek Harness Web
+| 品牌 Brand | |
+| --- | --- |
+| 中文品牌 | **思磨力** |
+| English brand | **Smoothly** |
+| 中文产品名 | **思磨力提供方参数** |
+| English product name | **Smoothly Model Reasoning** — short: **Smoothly MR** |
+
+思磨力提供方参数（**Smoothly MR**，英文全称 Smoothly Model Reasoning）是一个**外部** DeepSeek Harness Web
 客户端插件：新增一个设置页，管理内置 **Models**
 页刻意不暴露的提供方路由参数——重试与退避策略、超时、传输方式、缓存、思考预算、
 容量、请求图片预算——以及第三方（pi-ai）提供方的**按模型思考等级（推理强度）**。
@@ -18,7 +25,7 @@ DSH Smoothly Model Reasoning（**DSH SMR**）是一个**外部** DeepSeek Harnes
 
 ## 它管理什么
 
-设置里新增一项 **「提供方参数 / Provider parameters」**，排在内置 Models 页之后。
+设置里新增一项 **「思磨力提供方参数 / Smoothly MR」**，排在内置 Models 页之后。
 选择任意提供方路由——`llm-pi-ai` 的 `providers` 字典里的每个条目都可以在这里编辑，
 包括目录路由——在五个参数组里进行管理：
 
@@ -86,7 +93,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 dsh plugin --profile web add dsh-model-reasoning
 ```
 
-这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **设置 → 提供方参数 / Provider parameters**。
+这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **设置 → 思磨力提供方参数 / Smoothly MR**。
 
 ### 从 git 安装
 

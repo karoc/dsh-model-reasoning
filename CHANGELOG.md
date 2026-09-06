@@ -11,6 +11,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.2.4] - 2026-09-06
+
+### Changed
+
+- **品牌规范 — Smoothly（思磨力）.** The user-facing brand declarations are now:
+  English brand **Smoothly**, Chinese brand **思磨力**, English product name
+  **Smoothly Model Reasoning** (short **Smoothly MR**, replacing the v0.2.3
+  "DSH SMR"), Chinese product name **思磨力提供方参数**. Applies to the
+  settings section (now 「思磨力提供方参数 / Smoothly MR」), the page title, the
+  bilingual READMEs (which now carry a canonical brand table), and the npm
+  description / keywords. Technical identifiers are deliberately untouched —
+  npm package name `dsh-model-reasoning`, plugin runtime id `model-reasoning`,
+  locale namespace `provider-params`, section id, and style-tag marker stay as
+  they are, so installed profiles, the install/update/remove commands, and the
+  build chain remain intact.
+
 ## [0.2.3] - 2026-09-01
 
 ### Added

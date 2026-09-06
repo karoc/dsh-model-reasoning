@@ -1,5 +1,6 @@
 /**
- * Provider parameters settings plugin (DSH Smoothly Model Reasoning / DSH SMR),
+ * Provider parameters settings plugin (Smoothly Model Reasoning / Smoothly MR,
+ * 思磨力提供方参数),
  * browser half (external, not part of the DSH repository). Registers a Settings
  * page that manages per-provider route parameters (retry & backoff policy,
  * timeouts, transport, caching, thinking budgets, capacities, request image
