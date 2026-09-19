@@ -123,6 +123,7 @@ async function probe(path, timeoutMs = 10000) {
 //    definite 404" may fail the run.
 let visible = false
 let sawVersionAbsent = false
+let versionDoc
 for (let attempt = 0; attempt <= ATTEMPTS && !visible; attempt += 1) {
   if (attempt > 0) {
     if (attempt === 1 || attempt % 10 === 0 || attempt === ATTEMPTS) {
@@ -131,8 +132,14 @@ for (let attempt = 0; attempt <= ATTEMPTS && !visible; attempt += 1) {
     await sleep(INTERVAL_MS)
   }
   const result = await probe(`${encodedName}/${encodedVersion}`)
-  if (result.kind === 'data' && typeof result.doc?.version === 'string') visible = true
-  else if (result.kind === 'absent') sawVersionAbsent = true
+  if (result.kind === 'data' && typeof result.doc?.version === 'string') {
+    visible = true
+    // Keep the document from the polling round: re-probing later would add a
+    // second "unknown" failure mode before the tarball checks.
+    versionDoc = result.doc
+  } else if (result.kind === 'absent') {
+    sawVersionAbsent = true
+  }
 }
 
 const packageProbe = await probe(encodedName)
@@ -282,10 +289,9 @@ function gradeDownloadFailure(result) {
 }
 
 if (visible) {
-  const versionProbe = await probe(`${encodedName}/${encodedVersion}`)
-  const tarballUrl = versionProbe.kind === 'data' ? versionProbe.doc?.dist?.tarball : undefined
+  const tarballUrl = versionDoc?.dist?.tarball
   if (typeof tarballUrl !== 'string' || tarballUrl === '') {
-    warnings.push('the registry returned no tarball URL — tarball contents were not verified')
+    warnings.push('the registry returned no tarball URL — tarball contents were not verified; re-run this script later')
   } else {
     let download = await downloadTarball(tarballUrl)
     let grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
@@ -294,8 +300,9 @@ if (visible) {
       // NODE_USE_ENV_PROXY is set, so a proxy-only network falls back to curl.
       download = curlTarball(tarballUrl)
       grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
-    } else if (grade.fatal) {
-      // One retry for graded failures (a truncated body or a CDN blip).
+    } else if (download.kind !== 'ok') {
+      // One retry for EVERY answered-but-unusable response (a CDN 5xx/407 blip
+      // or a truncated body), matching the graded policy in the plan.
       download = await downloadTarball(tarballUrl)
       grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
     }

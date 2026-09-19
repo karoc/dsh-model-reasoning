@@ -89,6 +89,9 @@ const state = {
   packageVisible: true,
 }
 
+/** Per-scenario request counters (reset by the loop). */
+const hits = { tarball: 0 }
+
 const server = createServer((request, response) => {
   const url = new URL(request.url ?? '/', 'http://127.0.0.1')
   const path = decodeURIComponent(url.pathname)
@@ -120,15 +123,31 @@ const server = createServer((request, response) => {
     return
   }
   if (path.startsWith('/tarball/')) {
+    hits.tarball += 1
     const mode = path.slice('/tarball/'.length)
     if (mode === 'tarball-404') {
       response.writeHead(404, { 'content-type': 'text/html' })
       response.end('<!DOCTYPE html><title>Not Found</title>')
       return
     }
+    if (mode === 'tarball-403' || mode === 'tarball-407' || mode === 'tarball-503') {
+      response.writeHead(Number(mode.slice('tarball-'.length)), { 'content-type': 'text/plain' })
+      response.end('upstream refused')
+      return
+    }
     if (mode === 'not-gzip') {
       response.writeHead(200, { 'content-type': 'application/octet-stream' })
       response.end('this is not a gzip stream')
+      return
+    }
+    if (mode === 'truncated') {
+      response.writeHead(200, { 'content-type': 'application/octet-stream' })
+      response.end(tarballs.ok.subarray(0, Math.floor(tarballs.ok.length / 2)))
+      return
+    }
+    if (mode === 'hang') {
+      // Accepts the connection and never answers: exercises the download timeout
+      // and the curl fallback (both must be non-fatal).
       return
     }
     const bytes = mode === 'missing-entry' ? tarballs.missing : tarballs.ok
@@ -231,12 +250,40 @@ const scenarios = [
     setup: () => Object.assign(state, { mode: 'normal', versionVisible: true, packageVisible: true }),
     expect: (result) => result.code === 0 && result.output.includes('is not indexed yet'),
   },
+  {
+    name: 'tarball 503 (answered, retried once, non-fatal)',
+    setup: () => Object.assign(state, { mode: 'tarball-503', tag: version, versionVisible: true, packageVisible: true }),
+    expect: (result) => result.code === 0 && result.output.includes('HTTP 503') && hits.tarball === 2,
+  },
+  {
+    name: 'tarball 407 (answered, retried once, non-fatal)',
+    setup: () => Object.assign(state, { mode: 'tarball-407', tag: version, versionVisible: true, packageVisible: true }),
+    expect: (result) => result.code === 0 && result.output.includes('HTTP 407') && hits.tarball === 2,
+  },
+  {
+    name: 'tarball 403 (answered, fatal)',
+    setup: () => Object.assign(state, { mode: 'tarball-403', tag: version, versionVisible: true, packageVisible: true }),
+    expect: (result) => result.code === 1 && result.output.includes('HTTP 403'),
+  },
+  {
+    name: 'tarball truncated (gzip magic ok, stream broken, non-fatal)',
+    setup: () => Object.assign(state, { mode: 'truncated', tag: version, versionVisible: true, packageVisible: true }),
+    expect: (result) => result.code === 0 && result.output.includes('could not list the published tarball'),
+  },
+  {
+    name: 'tarball hangs (timeout + curl fallback, non-fatal)',
+    setup: () => Object.assign(state, { mode: 'hang', tag: version, versionVisible: true, packageVisible: true }),
+    expect: (result) => result.code === 0
+      && result.output.includes('could not verify the published tarball')
+      && hits.tarball >= 1,
+  },
 ]
 
 let failures = 0
 try {
   for (const scenario of scenarios) {
     scenario.setup()
+    hits.tarball = 0
     const overrides = scenario.name.startsWith('registry unreachable')
       ? { registry: 'http://127.0.0.1:1' }
       : {}
@@ -261,5 +308,4 @@ if (failures > 0) {
   process.exit(1)
 }
 console.log(`\n✅ post-publish-check fixture: ${scenarios.length}/${scenarios.length} scenarios passed`)
-if (!existsSync(source)) process.exit(1)
 process.exit(0)
