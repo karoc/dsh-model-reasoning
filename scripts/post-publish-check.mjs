@@ -272,6 +272,24 @@ function curlTarball(url) {
   }
 }
 
+/**
+ * Obtain the tarball bytes with a bounded, uniform policy: two attempts, each
+ * falling back to curl when the fetch failed at the transport layer (proxy-only
+ * networks honor proxy variables in curl but not in node's fetch). Any
+ * answered-but-unusable response — 4xx, 5xx, 407, non-gzip — is retried once,
+ * matching the graded policy. Returns the last outcome when all attempts fail.
+ */
+async function obtainTarball(url) {
+  let last
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    let download = await downloadTarball(url)
+    if (download.kind === 'transport') download = curlTarball(url)
+    if (download.kind === 'ok') return download
+    last = download
+  }
+  return last
+}
+
 /** Grade a failed download: only 4xx (407 excepted) and non-gzip are fatal. */
 function gradeDownloadFailure(result) {
   if (result.kind === 'http') {
@@ -293,19 +311,8 @@ if (visible) {
   if (typeof tarballUrl !== 'string' || tarballUrl === '') {
     warnings.push('the registry returned no tarball URL — tarball contents were not verified; re-run this script later')
   } else {
-    let download = await downloadTarball(tarballUrl)
-    let grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
-    if (download.kind === 'transport') {
-      // curl honors proxy environment variables; node's fetch does not unless
-      // NODE_USE_ENV_PROXY is set, so a proxy-only network falls back to curl.
-      download = curlTarball(tarballUrl)
-      grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
-    } else if (download.kind !== 'ok') {
-      // One retry for EVERY answered-but-unusable response (a CDN 5xx/407 blip
-      // or a truncated body), matching the graded policy in the plan.
-      download = await downloadTarball(tarballUrl)
-      grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
-    }
+    const download = await obtainTarball(tarballUrl)
+    const grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
 
     if (download.kind !== 'ok') {
       if (grade.fatal) problems.push(`could not verify the published tarball: ${grade.reason}`)

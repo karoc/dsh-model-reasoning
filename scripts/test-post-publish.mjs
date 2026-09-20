@@ -10,15 +10,21 @@
  *   3. definite 404        → exit 1 (version and package document both absent)
  *   4. tag lags behind     → exit 0 (advisory warning only)
  *   5. tag ahead           → exit 0 (advisory warning only)
- *   6. tarball HTTP 404    → exit 1
+ *   6. tarball HTTP 404    → exit 1 after one retry
  *   7. tarball not gzip    → exit 1
  *   8. listing misses file → exit 1
  *   9. registry unreachable→ exit 0 (transport failures never fail a release)
+ *  10. tarball 503         → exit 0 (answered but unusable, retried once)
+ *  11. tarball 407         → exit 0 (proxy refusal, retried once)
+ *  12. tarball 403         → exit 1 (retried once, then fatal)
+ *  13. truncated gzip      → exit 0 (unreadable tar stream = transport)
+ *  14. hanging endpoint    → exit 0 (fetch timeout + curl fallback)
+ *  15. no tarball URL      → exit 0 with a re-run instruction
  *
  * Run with `node scripts/test-post-publish.mjs` (no network, a few seconds).
  */
 import { execSync, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -87,6 +93,7 @@ const state = {
   tag: version,
   versionVisible: true,
   packageVisible: true,
+  omitTarball: false,
 }
 
 /** Per-scenario request counters (reset by the loop). */
@@ -99,7 +106,13 @@ const server = createServer((request, response) => {
     name: 'fixture-pkg',
     'dist-tags': { latest: state.tag },
     versions: state.versionVisible
-      ? { [version]: { name: 'fixture-pkg', version, dist: { tarball: `${base}/tarball/${state.mode}` } } }
+      ? {
+          [version]: {
+            name: 'fixture-pkg',
+            version,
+            ...(state.omitTarball ? {} : { dist: { tarball: `${base}/tarball/${state.mode}` } }),
+          },
+        }
       : {},
   })
   if (path === '/fixture-pkg') {
@@ -119,7 +132,11 @@ const server = createServer((request, response) => {
       return
     }
     response.writeHead(200, { 'content-type': 'application/json' })
-    response.end(JSON.stringify({ name: 'fixture-pkg', version, dist: { tarball: `${base}/tarball/${state.mode}` } }))
+    response.end(JSON.stringify({
+      name: 'fixture-pkg',
+      version,
+      ...(state.omitTarball ? {} : { dist: { tarball: `${base}/tarball/${state.mode}` } }),
+    }))
     return
   }
   if (path.startsWith('/tarball/')) {
@@ -233,7 +250,7 @@ const scenarios = [
   {
     name: 'tarball HTTP 404',
     setup: () => Object.assign(state, { mode: 'tarball-404', tag: version, versionVisible: true, packageVisible: true }),
-    expect: (result) => result.code === 1 && result.output.includes('HTTP 404'),
+    expect: (result) => result.code === 1 && result.output.includes('HTTP 404') && hits.tarball === 2,
   },
   {
     name: 'tarball not gzip',
@@ -256,19 +273,22 @@ const scenarios = [
     expect: (result) => result.code === 0 && result.output.includes('HTTP 503') && hits.tarball === 2,
   },
   {
+    // Node's fetch treats a 407 as a proxy challenge and throws, so this
+    // scenario exercises fetch → curl fallback → second attempt (4 hits).
+    // Assert a lower bound so the check survives Node changing that behavior.
     name: 'tarball 407 (answered, retried once, non-fatal)',
     setup: () => Object.assign(state, { mode: 'tarball-407', tag: version, versionVisible: true, packageVisible: true }),
-    expect: (result) => result.code === 0 && result.output.includes('HTTP 407') && hits.tarball === 2,
+    expect: (result) => result.code === 0 && result.output.includes('HTTP 407') && hits.tarball >= 2,
   },
   {
     name: 'tarball 403 (answered, fatal)',
     setup: () => Object.assign(state, { mode: 'tarball-403', tag: version, versionVisible: true, packageVisible: true }),
-    expect: (result) => result.code === 1 && result.output.includes('HTTP 403'),
+    expect: (result) => result.code === 1 && result.output.includes('HTTP 403') && hits.tarball === 2,
   },
   {
     name: 'tarball truncated (gzip magic ok, stream broken, non-fatal)',
     setup: () => Object.assign(state, { mode: 'truncated', tag: version, versionVisible: true, packageVisible: true }),
-    expect: (result) => result.code === 0 && result.output.includes('could not list the published tarball'),
+    expect: (result) => result.code === 0 && result.output.includes('could not list the published tarball') && hits.tarball === 1,
   },
   {
     name: 'tarball hangs (timeout + curl fallback, non-fatal)',
@@ -277,19 +297,30 @@ const scenarios = [
       && result.output.includes('could not verify the published tarball')
       && hits.tarball >= 1,
   },
+  {
+    name: 'no tarball URL in the version document (non-fatal, re-run hint)',
+    setup: () => {
+      Object.assign(state, { mode: 'normal', tag: version, versionVisible: true, packageVisible: true })
+      state.omitTarball = true
+    },
+    expect: (result) => result.code === 0
+      && result.output.includes('no tarball URL')
+      && result.output.includes('Re-run to complete the checks'),
+  },
 ]
 
 let failures = 0
 try {
   for (const scenario of scenarios) {
-    scenario.setup()
     hits.tarball = 0
+    state.omitTarball = false
+    scenario.setup()
     const overrides = scenario.name.startsWith('registry unreachable')
       ? { registry: 'http://127.0.0.1:1' }
       : {}
     const result = await runCheckAllowingFailure(overrides)
     const ok = scenario.expect(result)
-    console.log(`${ok ? '✔' : '✖'} ${scenario.name} (exit ${result.code})`)
+    console.log(`${ok ? '✔' : '✖'} ${scenario.name} (exit ${result.code}, tarball hits ${hits.tarball})`)
     if (!ok) {
       failures += 1
       console.log(result.output.split('\n').map((line) => `    | ${line}`).join('\n'))
