@@ -147,11 +147,14 @@ if (status.length > 0) fail(`working tree is not clean — commit everything fir
 // 7. lib/ present AND fresh (no src/ file newer than the built output).
 let stale = []
 for (const artifact of ['lib/client.js', 'lib/index.js']) {
-  if (!existsSync(join(root, artifact))) fail(`${artifact} is missing — run pnpm bundle first`)
+  if (!existsSync(join(root, artifact))) {
+    fail(`${artifact} is missing — run \`npm run bundle\` first`)
+  }
 }
 if (existsSync(join(root, 'src'))) {
   const srcNewest = newestMtime(join(root, 'src'))
   for (const artifact of ['lib/client.js', 'lib/index.js']) {
+    if (!existsSync(join(root, artifact))) continue
     const st = statSync(join(root, artifact))
     if (srcNewest > st.mtimeMs + 1000) {
       stale.push(relative(root, join(root, artifact)))
@@ -159,7 +162,7 @@ if (existsSync(join(root, 'src'))) {
   }
 }
 if (stale.length > 0) {
-  fail(`build output is stale (src/ newer than ${stale.join(', ')}) — run pnpm bundle first`)
+  fail(`build output is stale (src/ newer than ${stale.join(", ")}) — run \`npm run bundle\` first`)
 }
 
 // 8. not already published — probed DIRECTLY against the registry index with
