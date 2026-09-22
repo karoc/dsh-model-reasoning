@@ -38,7 +38,8 @@
   "scripts": {
     "bundle": "tsdown --config ./tsdown.config.ts",
     "prepare": "tsdown --config ./tsdown.config.ts",
-    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsc --noEmit && node --test tests/*.test.ts",
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs",
     "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",
@@ -78,7 +79,8 @@
   "devDependencies": {
     "@types/react": "~18.3.1",
     "react": "^18.2.0",
-    "tsdown": "^0.22.0"
+    "tsdown": "^0.22.0",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "react": "^18.2.0"

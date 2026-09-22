@@ -9,7 +9,8 @@ must be coherent: a version bump without its documentation is a defect.
 Prerequisites: Node.js ≥ 18, [pnpm](https://pnpm.io).
 
 ```sh
-pnpm install      # installs build deps (tsdown, react)
+pnpm install      # installs build deps (tsdown, react, typescript)
+pnpm typecheck    # tsc --noEmit (needs the local @deepseek-ai symlinks — see the plugin-development skill §5; ⚠️ npm install prunes them, re-create after any install)
 pnpm bundle       # emits lib/index.js + lib/client.js
 ```
 
@@ -26,8 +27,8 @@ A release is ONE coherent change — code and its documentation land together.
 Splitting a feature's docs into a later "docs release" is a defect. Every release
 MUST include, in the SAME release:
 
-1. **Code change** — implemented, and `pnpm bundle` succeeds (`lib/` produced).
-2. **README.md (English)** — describes the new user-visible behavior.
+1. **Code change** — implemented; `pnpm test` (typecheck + unit tests) passes and `pnpm bundle` succeeds (`lib/` produced).
+2. **README.md (English)** — describes the new user-visible behavior, including any compatibility boundary the change moves (supported dsh floor; the release to use on older dsh).
 3. **README.zh.md (Chinese)** — mirrors the same sections (same `##` section
    set; the release gate verifies the section counts match).
 4. **CHANGELOG.md** — an entry under `## [<version>]` for this release, as the
@@ -36,6 +37,11 @@ MUST include, in the SAME release:
    tag `v<version>` on HEAD.
 6. **Git** — working tree clean (everything committed), tag pushed.
 7. **Not re-published** — the version must not already exist on npm.
+8. **Semantic sweep (before tagging)** — the gate checks structure only. Re-read
+   every sentence the change could have invalidated (README en/zh, compatibility
+   statements and the supported-dsh floor, CHANGELOG wording) against the code,
+   then run the standing self-check:「我这次改的东西，有没有哪句话、哪个字段的说法现在已经不对了？」
+   Discipline source: `~/.agents/skills/dsh-plugin-development/SKILL.md` (§6).
 
 ## Verification — the release gate
 
