@@ -1,6 +1,6 @@
 {
   "name": "dsh-model-reasoning",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "Smoothly Model Reasoning (Smoothly MR) — 思磨力提供方参数: external DeepSeek Harness web client plugin — a Settings page managing llm-pi-ai provider-route parameters (retry & backoff, timeouts, transport, caching, budgets, capacities) plus per-model reasoning efforts.",
   "type": "module",
   "main": "lib/index.js",

@@ -24,9 +24,9 @@ import type {
 } from '@deepseek-ai/dsh-api-remotes/client'
 import type { JsonValue } from '@deepseek-ai/dsh-util-values'
 import type {
-  SettingsScope, SettingsScopeSnapshot,
+  ConfigForm, ConfigFormSnapshot,
 } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { Button, IconChevronDownOutline14, IconThinkOutline16, Input, Menu, Pill, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, IconChevronDownOutlineRegular, IconThinkOutlineRegular, Input, Menu, Pill, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   BUDGET_KEYS, CACHE_RETENTIONS, EFFECTIVE_DEFAULTS, MODALITIES,
   NUMBER_FIELDS, REASONING_LEVELS, RETRYABLE_CODE_PRESETS, TRANSPORTS,
@@ -62,14 +62,14 @@ export interface ProviderParamsInjected {
   /** Section copy. */
   t: (key: ParamKey) => string
   /** Bare observable bound into the `useModelReasoning` selector hook. */
-  hooks: { modelReasoning: SettingsScope<PiAiSection> }
+  hooks: { modelReasoning: ConfigForm<PiAiSection> }
 }
 
 /** Props delivered by the slot outlet: the inject face spread flat (hooks bound). */
 export interface ProviderParamsProps {
   api?: SettingsWire
   t?: (key: ParamKey) => string
-  useModelReasoning?: (selector: (snapshot: SettingsScopeSnapshot<PiAiSection>) => unknown) => unknown
+  useModelReasoning?: (selector: (snapshot: ConfigFormSnapshot<PiAiSection>) => unknown) => unknown
 }
 
 /** Parameter groups, in panel order; ids index the tab strip. The first tab
@@ -165,7 +165,7 @@ function SearchSelect(props: {
         <span className={matched === undefined ? 'mr-selector-label mr-selector-placeholder' : 'mr-selector-label'}>
           {matched === undefined ? props.placeholder : matched.label}
         </span>
-        <IconChevronDownOutline14 className="mr-chevron" />
+        <IconChevronDownOutlineRegular className="mr-chevron" />
       </button>
       {open && (
         <div className="mr-sselect-panel" role="listbox">
@@ -232,7 +232,7 @@ function Selector(props: {
           >
             {matched === undefined ? placeholder : matched.label}
           </span>
-          <IconChevronDownOutline14 className="mr-chevron" />
+          <IconChevronDownOutlineRegular className="mr-chevron" />
         </button>
       )}
     />
@@ -287,7 +287,7 @@ function ProviderParamsLoaded(props: {
 }): ReactNode {
   const { api, t, useModelReasoning } = props
 
-  const raw = useModelReasoning((snapshot) => snapshot) as SettingsScopeSnapshot<PiAiSection>
+  const raw = useModelReasoning((snapshot) => snapshot) as ConfigFormSnapshot<PiAiSection>
   const value = raw?.value
   const routes = useMemo(() => Object.entries(value?.providers ?? {}), [value])
 
@@ -1014,7 +1014,7 @@ function ProviderParamsLoaded(props: {
           : showEmpty
             ? (
               <div className="mr-empty" role="status">
-                <IconThinkOutline16 className="mr-empty-icon" size={16} />
+                <IconThinkOutlineRegular className="mr-empty-icon" size={16} />
                 <p className="mr-empty-title">{t('emptyNoProvidersTitle')}</p>
                 <p className="mr-empty-body">{t('emptyNoProvidersBody')}</p>
                 <p className="mr-empty-hint">{t('emptyNoProvidersAction')}</p>

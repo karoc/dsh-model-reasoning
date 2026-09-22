@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.2.5] - 2026-09-23
+
+### Fixed
+
+- **dsh 0.1.7 compatibility — settings-forms migration.** dsh 0.1.7 removed the
+  `settingsScope` client service (its successor is the settings-forms service
+  `configForms`), so the browser half stayed `pending (waiting for service:
+  settingsScope)` and the Settings page never loaded (web boot reported
+  "Failed to load plugins"). The page now reads through
+  `ctx.configForms.get('llm-pi-ai')` (fiber inject `settingsScope` →
+  `configForms`; types `SettingsScope*` → `ConfigForm*`), with the same
+  snapshot shape; the write path is unchanged (`ctx.remote.settings.mutate`
+  with revision fencing). Icons follow the 0.1.7 visual-language rename
+  (upstream commit `4937343a5e`: `IconChevronDownOutline14` →
+  `IconChevronDownOutlineRegular`, `IconThinkOutline16` →
+  `IconThinkOutlineRegular`). Verified live on DSH 0.1.7-alpha.1 (isolated
+  DSH_HOME + Playwright): the section renders the stored routes, and a save
+  round trip writes the anchored field and restores the profile patch
+  byte-exactly. dsh builds older than 0.1.7 are no longer supported — the
+  same single-direction upgrade policy as the 0.1.2 migration (v0.2.4 remains
+  the release for 0.1.2–0.1.6).
+
 ## [0.2.4] - 2026-09-06
 
 ### Changed
