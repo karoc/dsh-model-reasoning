@@ -105,7 +105,7 @@ hinted while the settings document loads.
 
 **Prerequisites:** a DeepSeek Harness install with the `dsh` CLI, plus [pnpm](https://pnpm.io) (the `dsh plugin` command runs pnpm under the hood). This is an installable **bundle** — it is loaded by `dsh`, not imported as a library.
 
-**Compatibility:** since v0.2.2 the page writes through the settings **Remote** namespace dsh 0.1.2 introduced (`ctx.remote.settings`); dsh builds older than 0.1.2 (the `connection.api` RPC face) are not supported.
+**Compatibility:** since v0.2.5 the page reads through the settings-forms service (`ctx.configForms`) and writes through the settings **Remote** namespace (`ctx.remote.settings`); dsh builds older than 0.1.7 — which removed the predecessor `settingsScope` client seam — are not supported (v0.2.4 remains the release for dsh 0.1.2–0.1.6).
 
 ### From npm (recommended)
 
@@ -152,7 +152,7 @@ cordis.patch.yml                # bundle layer: mounts the row that the client-m
 package.json                    # dsh.bundle (patch) + dsh.client (web) + exports["./client"]
 tsdown.config.ts                # self-contained build: node half + module-table client bundle
 src/index.ts                    # host apply (no-op)
-src/client/index.ts             # client apply: settingsScope.bind(llm-pi-ai) + register settings.section
+src/client/index.ts             # client apply: configForms.get(llm-pi-ai) + register settings.section
 src/client/ProviderParamsSection.tsx  # the settings page (route → group tabs → editors)
 src/client/params.ts            # managed-field registry: domains, defaults, host-mirroring
                                 # validators, draft model, minimal-op diff engine
@@ -192,7 +192,7 @@ module table; everything else is inlined.
   `ui-settings-general` `SettingsRoot.tsx` `navIcon(id)` maps known ids and
   falls back to a gear for every other id — including this section's
   `provider-params`. When DSH exposes a per-section icon, use
-  `IconThinkOutline16` from `dsh-client-ui-primitives` for this section.
+  `IconThinkOutlineRegular` from `dsh-client-ui-primitives` for this section.
 
 ## License
 

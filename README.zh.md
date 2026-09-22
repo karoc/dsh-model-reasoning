@@ -83,7 +83,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 
 **前置要求：** 已安装带 `dsh` CLI 的 DeepSeek Harness，以及 [pnpm](https://pnpm.io)（`dsh plugin` 命令底层调用 pnpm）。这是一个可安装的 **bundle**——由 `dsh` 加载，不是当作库 import。
 
-**兼容性：** 自 v0.2.2 起，本页面通过 dsh 0.1.2 引入的 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.2 的 dsh 构建（`connection.api` RPC 面）不受支持。
+**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。
 
 ### 从 npm 安装（推荐）
 
@@ -129,7 +129,7 @@ cordis.patch.yml                # bundle 层：挂载 client-modules 服务可�
 package.json                    # dsh.bundle（patch）+ dsh.client（web）+ exports["./client"]
 tsdown.config.ts                # 自包含构建：node 半区 + 模块表客户端 bundle
 src/index.ts                    # host apply（空操作）
-src/client/index.ts             # client apply：settingsScope.bind(llm-pi-ai) + 注册 settings.section
+src/client/index.ts             # client apply：configForms.get(llm-pi-ai) + 注册 settings.section
 src/client/ProviderParamsSection.tsx  # 设置页（路由 → 参数分组页签 → 各编辑器）
 src/client/params.ts            # 受管字段注册表：取值域、默认值、镜像 host 的校验器、
                                 # 草稿模型、最小 op 差异引擎
@@ -164,7 +164,7 @@ bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client
 - **设置项导航图标由壳分配，不由插件分配。** 内置 `ui-settings-general` 的
   `SettingsRoot.tsx` `navIcon(id)` 只映射已知 id，其余 id（包括本项的
   `provider-params`）一律回退为齿轮。等 DSH 开放按 section 指定图标的能力后，为
-  该项目使用 `dsh-client-ui-primitives` 的 `IconThinkOutline16`。
+  该项目使用 `dsh-client-ui-primitives` 的 `IconThinkOutlineRegular`。
 
 ## 许可证
 
