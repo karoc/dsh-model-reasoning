@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- **Negative controls, now part of `npm test`** (`npm run test:controls`).
+  `scripts/test-negative-controls.mjs` clones the committed tree per scenario,
+  injects ONE defect and asserts the responsible gate fails with the documented
+  message: dirty tree, removed CHANGELOG entry, deleted release tag, removed
+  build artifact, and a guarantee row whose pinning test title is gone — plus a
+  positive control (an unmutated clone must pass). 5/5 mutations caught; the
+  harness also caught a stale expectation of mine while it was being written.
 - **Guarantee gate, now part of `npm test`.** `docs/guarantees.md` lists the
   promises this plugin must never break — "a removed override is written as
   `unset`, not as a default echo", "a no-diff draft writes nothing", "non-numeric
