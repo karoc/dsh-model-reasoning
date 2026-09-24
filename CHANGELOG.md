@@ -11,6 +11,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.2.6] - 2026-09-25
+
+### Changed
+
+- **The dsh floor is now declared as a peer dependency, not only documented.**
+  `package.json` declares an optional peer on
+  `@deepseek-ai/dsh-client-ui-settings: ">=0.1.7-rc.1"`. DSH ≥ 0.1.7 evaluates
+  every `@deepseek-ai/dsh*` peer against its own runtime version, so an older dsh
+  refuses to load the page and prints the exact `dsh plugin allow-version`
+  remedy instead of failing later at render time. It is marked
+  `peerDependenciesMeta.optional` because the host supplies that package at
+  runtime — npm therefore installs nothing extra. The prerelease rule the range
+  encodes: `>=0.1.7` (or `^0.1.7`) does **not** match a `0.1.7-rc.N` runtime,
+  hence the explicit `-rc.1` floor.
+
+### Tests
+
+- **Type-checked against DSH 0.1.7-rc.2** (2026-09-25): `tsc --noEmit` is green
+  with the rc.2 type surface — `ConfigForm`, the settings slot contract and every
+  symbol the page imports are unchanged or purely additive in rc.2. No runtime
+  pass on rc.2 was done in that sweep.
+
 ## [0.2.5] - 2026-09-23
 
 ### Fixed

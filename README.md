@@ -105,7 +105,7 @@ hinted while the settings document loads.
 
 **Prerequisites:** a DeepSeek Harness install with the `dsh` CLI, plus [pnpm](https://pnpm.io) (the `dsh plugin` command runs pnpm under the hood). This is an installable **bundle** — it is loaded by `dsh`, not imported as a library.
 
-**Compatibility:** since v0.2.5 the page reads through the settings-forms service (`ctx.configForms`) and writes through the settings **Remote** namespace (`ctx.remote.settings`); dsh builds older than 0.1.7 — which removed the predecessor `settingsScope` client seam — are not supported (v0.2.4 remains the release for dsh 0.1.2–0.1.6).
+**Compatibility:** since v0.2.5 the page reads through the settings-forms service (`ctx.configForms`) and writes through the settings **Remote** namespace (`ctx.remote.settings`); dsh builds older than 0.1.7 — which removed the predecessor `settingsScope` client seam — are not supported (v0.2.4 remains the release for dsh 0.1.2–0.1.6). The floor is now declared as an optional `@deepseek-ai/dsh-client-ui-settings` peer dependency, so a DSH ≥ 0.1.7 runtime refuses to load the plugin on an older dsh and prints the exact `dsh plugin allow-version` remedy.
 
 ### From npm (recommended)
 

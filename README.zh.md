@@ -83,7 +83,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 
 **前置要求：** 已安装带 `dsh` CLI 的 DeepSeek Harness，以及 [pnpm](https://pnpm.io)（`dsh plugin` 命令底层调用 pnpm）。这是一个可安装的 **bundle**——由 `dsh` 加载，不是当作库 import。
 
-**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。
+**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。该下限已声明为对 `@deepseek-ai/dsh-client-ui-settings` 的可选 peer 依赖：DSH ≥ 0.1.7 的运行时在旧 dsh 上会拒绝加载本插件并打印 `dsh plugin allow-version` 的具体解法。
 
 ### 从 npm 安装（推荐）
 
