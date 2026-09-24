@@ -78,7 +78,11 @@ const scenarios = [
     expect: /no test title matches/,
     mutate: (dir) => {
       const p = join(dir, 'docs/guarantees.md')
-      writeFileSync(p, readFileSync(p, 'utf8').replace(/`emits nothing for a no-diff draft`/, '`an assertion that does not exist`'))
+      const before = readFileSync(p, 'utf8')
+      const after = before.replace(/`emits nothing for a no-diff draft`/, '`an assertion that does not exist`')
+      // A no-op mutation would make this scenario pass for the wrong reason.
+      if (after === before) throw new Error('mutation did not apply — the anchor is not in docs/guarantees.md')
+      writeFileSync(p, after)
     },
   },
 ]
@@ -102,8 +106,13 @@ console.log('▶ positive control — an unmutated clone must PASS both gates')
 
 for (const scenario of scenarios) {
   const dir = freshClone()
-  scenario.mutate(dir)
-  const result = run(dir, scenario.command)
+  let result
+  try {
+    scenario.mutate(dir)
+    result = run(dir, scenario.command)
+  } catch (error) {
+    result = { code: 0, output: `mutation threw: ${error.message}` }
+  }
   rmSync(dir, { recursive: true, force: true })
   const caught = result.code !== 0 && scenario.expect.test(result.output)
   console.log(`${caught ? '✅' : '❌'} ${scenario.name}`)
