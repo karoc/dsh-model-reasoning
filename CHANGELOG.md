@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- **`npm run verify:all` — every gate, one command, bound to the commit.**
+  Runs script syntax, the type check + unit suite, the guarantee gate, the
+  negative controls and the release gate, writing `{ts, commit, node, steps[]}`
+  to the gitignored `lib/verify-report.json`. `npm run verify:fresh` FAILS when
+  HEAD no longer matches the recorded commit — a green claim is only as good as
+  the commit it was measured on. A failed step is a failed verification, never
+  an "unknown".
 - **Negative controls, now part of `npm test`** (`npm run test:controls`).
   `scripts/test-negative-controls.mjs` clones the committed tree per scenario,
   injects ONE defect and asserts the responsible gate fails with the documented

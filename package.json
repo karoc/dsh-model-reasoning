@@ -45,7 +45,9 @@
     "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",
     "postpublish": "node scripts/post-publish-check.mjs",
     "verify:guarantees": "node scripts/check-guarantees.mjs",
-    "test:controls": "node scripts/test-negative-controls.mjs"
+    "test:controls": "node scripts/test-negative-controls.mjs",
+    "verify:all": "node scripts/verify-all.mjs",
+    "verify:fresh": "node scripts/verify-all.mjs --check-fresh"
   },
   "engines": {
     "node": ">=18"
