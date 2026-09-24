@@ -57,7 +57,7 @@ for (const row of rows) {
     continue
   }
   if (!specSources.includes(row.selector)) {
-    failures.push(`${row.id}: no assertion matches "${row.selector}" (guarantee: ${row.guarantee})`)
+    failures.push(`${row.id}: no test title matches "${row.selector}" (guarantee: ${row.guarantee})`)
   }
 }
 
