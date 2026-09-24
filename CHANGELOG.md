@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
+- **Guarantee gate, now part of `npm test`.** `docs/guarantees.md` lists the
+  promises this plugin must never break — "a removed override is written as
+  `unset`, not as a default echo", "a no-diff draft writes nothing", "non-numeric
+  text in numeric fields is rejected" — and names the test title that pins each
+  one; `scripts/check-guarantees.mjs` fails the suite when a title disappears
+  (13 rows today). Verified by negative control: a row pointing at a
+  non-existent title makes the gate FAIL.
 - **Type-checked against DSH 0.1.7-rc.2** (2026-09-25): `tsc --noEmit` is green
   with the rc.2 type surface — `ConfigForm`, the settings slot contract and every
   symbol the page imports are unchanged or purely additive in rc.2. No runtime

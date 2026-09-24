@@ -39,11 +39,12 @@
     "bundle": "tsdown --config ./tsdown.config.ts",
     "prepare": "tsdown --config ./tsdown.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsc --noEmit && node --test tests/*.test.ts",
+    "test": "tsc --noEmit && node --test tests/*.test.ts && node scripts/check-guarantees.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs",
     "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",
-    "postpublish": "node scripts/post-publish-check.mjs"
+    "postpublish": "node scripts/post-publish-check.mjs",
+    "verify:guarantees": "node scripts/check-guarantees.mjs"
   },
   "engines": {
     "node": ">=18"
@@ -87,6 +88,8 @@
     "react": "^18.2.0"
   },
   "peerDependenciesMeta": {
-    "@deepseek-ai/dsh-client-ui-settings": { "optional": true }
+    "@deepseek-ai/dsh-client-ui-settings": {
+      "optional": true
+    }
   }
 }
