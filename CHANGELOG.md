@@ -193,7 +193,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The model search filter ships in this release (developed post-0.1.4): a
-  display-only filter above the model selector narrows by name / id, keeping
+  display-only filter at the top of the model-selector panel narrows by name / id, keeping
   the stored order and write path untouched.
 
 ### Fixed

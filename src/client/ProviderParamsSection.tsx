@@ -371,7 +371,10 @@ function ProviderParamsLoaded(props: {
   }
 
   // A "thinking on" declaration must offer at least one level beyond off, or
-  // the adapter refuses it where it is written. The Save gate mirrors that.
+  // the adapter refuses it where it is written. Apply-to-all requires that
+  // (see canApplyAll); Save deliberately does not — an all-off draft stays
+  // savable and the host's schema rejects it at write time, which is more
+  // informative than a disabled Save button with no explanation.
   const onHasLevel = levels.size > 0 && (levels.size > 1 || !levels.has('off'))
   const nextDict = mode === 'on'
     ? wireOf(levels, wire, offEmpty)
