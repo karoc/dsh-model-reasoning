@@ -17,14 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The dsh floor is now declared as a peer dependency, not only documented.**
   `package.json` declares an optional peer on
-  `@deepseek-ai/dsh-client-ui-settings: ">=0.1.7-rc.1"`. DSH ≥ 0.1.7 evaluates
-  every `@deepseek-ai/dsh*` peer against its own runtime version, so an older dsh
-  refuses to load the page and prints the exact `dsh plugin allow-version`
-  remedy instead of failing later at render time. It is marked
+  `@deepseek-ai/dsh-client-ui-settings: ">=0.1.7-rc.1"`. The gate that reads it ships from **DSH 0.1.7-rc.1** on — it
+  compares every `@deepseek-ai/dsh*` peer against the running runtime and refuses
+  a plugin the runtime fails, printing the `dsh plugin allow-version` remedy.
+  Runtimes older than that gate evaluate **no** peers and
+  refuse nothing: 0.1.2–0.1.6 lack the settings-forms seam, so the page never
+  loads there — **v0.2.4 remains the release for 0.1.2–0.1.6** — while the 0.1.7
+  alphas keep that seam and work. It is marked
   `peerDependenciesMeta.optional` because the host supplies that package at
-  runtime — npm therefore installs nothing extra. The prerelease rule the range
-  encodes: `>=0.1.7` (or `^0.1.7`) does **not** match a `0.1.7-rc.N` runtime,
-  hence the explicit `-rc.1` floor.
+  runtime — npm therefore installs nothing extra. The prerelease rule the range encodes, verified through the real gate function
+  on the semver `@deepseek-ai/dsh-app-boot` resolves (7.8.5): `>=0.1.7` and
+  `^0.1.7` are both refused at a `0.1.7-rc.N` runtime, hence the explicit `-rc.1`
+  floor. The caret form answers differently on other semver versions/options, so
+  spelling the prerelease out is what keeps the range unambiguous.
 
 ### Tests
 

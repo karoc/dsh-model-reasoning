@@ -6,7 +6,8 @@ must be coherent: a version bump without its documentation is a defect.
 
 ## Development
 
-Prerequisites: Node.js ≥ 18, [pnpm](https://pnpm.io).
+Prerequisites: Node.js ^22.18.0 || >=24.11.0 (the floor `tsdown`, this package's
+bundler, declares), [pnpm](https://pnpm.io).
 
 ```sh
 pnpm install      # installs build deps (tsdown, react, typescript)
@@ -67,12 +68,15 @@ the `v<version>` tag on HEAD, working tree is clean, `lib/` is built and fresh
 - **Content parity within sections is not mechanically verifiable.** The gate
   checks structural parity (section/subsection counts); translated wording must
   still be reviewed by hand.
-- **Offline runs cannot confirm "not re-published".** The registry check is
-  best-effort; if the registry is unreachable it is skipped.
+- **Offline runs cannot confirm "not re-published".** A probe that cannot
+  determine the answer (transport failure, timeout, unexpected HTTP status)
+  BLOCKS the release after three bounded attempts;
+  `DSH_RELEASE_ALLOW_REGISTRY_UNREACHABLE=1` is the deliberate override.
 - **`postpublish` verifies after the fact, it cannot prevent.** It runs only
   after the package is already on npm; a finding there means the release is
   live but inconsistent — never re-publish the same version to "fix" it. It
-  polls the registry for index eventual consistency (up to ~42s) before
+  polls the registry for index eventual consistency (100 attempts, 3s apart;
+  `DSH_POSTPUBLISH_ATTEMPTS` / `DSH_POSTPUBLISH_INTERVAL_MS` override) before
   judging, so a successful publish is not falsely flagged right after upload.
 
 ## Release steps

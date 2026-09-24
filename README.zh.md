@@ -56,11 +56,11 @@
 schema 里只存在于路由级，一份共享值就是全部事实（悬停徽标的 tooltip 会说明，
 旁边不重复展示文字）。
 
-每个字段未设置时以占位符显示生效的适配器默认值；清空字段即移除该覆盖项，而不会把
+有适配器默认值的字段在未设置时以占位符显示该默认值；清空字段即移除该覆盖项，而不会把
 默认值回写一遍。本地校验镜像 host 自身的解析规则，大多数错误在写入前就会被拦下；
 host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路径带 revision 冲突
-保护，并发修改会被拒绝而不是被静默覆盖。**应用到所有模型**按钮可把当前模型的思考
-声明一键复制到该路由的全部模型。
+保护，并发修改会被拒绝而不是被静默覆盖。**应用到所有模型**按钮可把当前模型编辑器中
+勾选的维度一键复制到该路由的全部模型。
 
 ### 自定义线上拼写（适配任意上游词汇）
 
@@ -83,7 +83,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 
 **前置要求：** 已安装带 `dsh` CLI 的 DeepSeek Harness，以及 [pnpm](https://pnpm.io)（`dsh plugin` 命令底层调用 pnpm）。这是一个可安装的 **bundle**——由 `dsh` 加载，不是当作库 import。
 
-**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。该下限已声明为对 `@deepseek-ai/dsh-client-ui-settings` 的可选 peer 依赖：DSH ≥ 0.1.7 的运行时在旧 dsh 上会拒绝加载本插件并打印 `dsh plugin allow-version` 的具体解法。
+**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`，写入路径自 v0.2.2 起）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。该下限也声明在 `package.json` 中，即对 `@deepseek-ai/dsh-client-ui-settings` 的可选 peer 依赖（`>=0.1.7-rc.1`），使该下限对自 dsh 0.1.7-rc.1 起的 peer 校验门禁可机读：越界的 bundle 会被拒绝，并打印 `dsh plugin allow-version` 的具体解法。早于该门禁的运行时不做任何 peer 校验，因此不会拒绝任何东西：0.1.2–0.1.6 上页面根本加载不出来，而 0.1.7 的 alpha（有 seam、无门禁）照常工作。
 
 ### 从 npm 安装（推荐）
 
@@ -157,8 +157,8 @@ bundle 把平台包（`react`、`@deepseek-ai/cordis`、`@deepseek-ai/dsh-client
   所有路由的路由级参数组始终可编辑。通过 `modelOverrides` 定制目录模型属于后续计划。
 - 凭据管理（`apiKeyEnv`）、`displayName`、`baseURL`、协议（`api`）和模型列表结构
   仍归内置 **Models** 页管理；本插件不做重复建设。
-- 线上拼写默认等于等级名；如需改线上的拼写（如 `max: ultra`），可在 `settings.yaml`
-  中直接编辑该模型。
+- 线上拼写默认等于等级名，在页面里逐等级编辑；同一字段也可直接在 `settings.yaml`
+  中设置该模型（例如 `max: ultra`）。
 - 上游已移除的遗留路由级键（`provider`、`maxRetries`、`maxRetryDelayMs`）本插件
   绝不写入。
 - **设置项导航图标由壳分配，不由插件分配。** 内置 `ui-settings-general` 的
