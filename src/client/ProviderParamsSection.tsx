@@ -70,6 +70,10 @@ export interface ProviderParamsProps {
   api?: SettingsWire
   t?: (key: ParamKey) => string
   useModelReasoning?: (selector: (snapshot: ConfigFormSnapshot<PiAiSection>) => unknown) => unknown
+  /** The Plugins page asks for `summary` (one-liner) or `page` (the form). The
+   * bundle's detail page only renders `page`; `summary` returns null so the
+   * component never has to invent a one-liner. */
+  view?: 'summary' | 'page'
 }
 
 /** Parameter groups, in panel order; ids index the tab strip. The first tab
@@ -275,6 +279,7 @@ function defaultText(t: (key: ParamKey) => string, value: number): string {
  */
 export function ProviderParamsSection(props: ProviderParamsProps): ReactNode {
   const { api, t, useModelReasoning } = props
+  if (props.view === 'summary') return null
   if (api === undefined || t === undefined || useModelReasoning === undefined) return null
   return <ProviderParamsLoaded api={api} t={t} useModelReasoning={useModelReasoning} />
 }

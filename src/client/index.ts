@@ -1,21 +1,24 @@
 /**
  * Provider parameters settings plugin (Smoothly Model Reasoning / Smoothly MR,
  * 思磨力提供方参数),
- * browser half (external, not part of the DSH repository). Registers a Settings
- * page that manages per-provider route parameters (retry & backoff policy,
- * timeouts, transport, caching, thinking budgets, capacities, request image
- * budgets) plus the per-model reasoning declaration for third-party pi-ai
- * providers — writing the same `llm-pi-ai.providers.<route>.*` fields the
- * adapter reads. It rides the same slot + settings-forms (`configForms`)
- * seams the built-in Models page uses, so official updates to the repository
- * never touch it.
+ * browser half (external, not part of the DSH repository). Registers the
+ * bundle's own configuration on the **Plugins page** (`plugins.bundle.config`,
+ * keyed by this package's name): the page renders it between the bundle's
+ * description and its rows. It manages per-provider route parameters (retry &
+ * backoff policy, timeouts, transport, caching, thinking budgets, capacities,
+ * request image budgets) plus the per-model reasoning declaration for
+ * third-party pi-ai providers — writing the same
+ * `llm-pi-ai.providers.<route>.*` fields the adapter reads. It rides the same
+ * slot + settings-forms (`configForms`) seams the built-in Models page uses,
+ * so official updates to the repository never touch it.
  */
 
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-// Type-only: pulls the shell's SlotMap merge (the 'settings.section' entry)
-// and the settings-forms contract (ConfigForm).
+// Type-only: pulls the settings-forms contract (ConfigForm).
 import type { ConfigForm } from '@deepseek-ai/dsh-client-ui-settings/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
+// Type-only: pulls the Plugins page's SlotMap merge (the 'plugins.bundle.config'
+// entry) into this program.
+import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: pulls the renderer's Context merge (ctx.slots) into this program.
@@ -53,9 +56,9 @@ const PI_AI_NS = 'llm-pi-ai'
 export const inject = ['slots', 'locale', 'remote', 'remote.settings', 'configForms']
 
 /**
- * Register the Provider parameters section once the `settings.section`
- * declaration is on the ledger, binding the `llm-pi-ai` namespace scope on this
- * plugin's lifecycle.
+ * Register the bundle's configuration once the Plugins page's
+ * `plugins.bundle.config` declaration is on the ledger, binding the
+ * `llm-pi-ai` namespace scope on this plugin's lifecycle.
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
@@ -69,11 +72,10 @@ export function apply(ctx: ClientContext): void {
     hooks: { modelReasoning: form },
   })
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
-    name: 'settings.section',
-    id: 'provider-params',
-    order: 20,
-    label: () => t('nav'),
+  ctx.slots.inject('plugins.bundle.config', () => ctx.slots.register({
+    name: 'plugins.bundle.config',
+    key: 'dsh-model-reasoning',
+    locale: NS,
     inject: injected,
   }, ProviderParamsSection))
 }

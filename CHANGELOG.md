@@ -11,6 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > `pnpm release:check` (also run by `prepublishOnly`) blocks publishing until
 > every item passes. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## [0.3.0] - 2026-10-31
+
+### Changed
+
+- **The configuration moved to the Plugins page.** dsh 0.1.6-alpha.2 replaced the
+  settings plugin slot (`settings.plugin.item`, deprecated) and now renders a
+  bundle's own configuration through the plugin manager's
+  `plugins.bundle.config` seam. The bundle registers that slot keyed by its
+  package name (`dsh-model-reasoning`), so the page appears at **Plugins →
+  dsh-model-reasoning** (dsh 0.2.x) instead of a top-level Settings section
+  (`settings.section`, which no longer has a consumer in the plugin manager).
+- `dsh.client.inject` now declares `@deepseek-ai/dsh-client-ui-plugin-manager`
+  (the module that declares the slot), keeping the client module order explicit.
+
 ## [0.2.6] - 2026-09-25
 
 ### Changed

@@ -25,8 +25,8 @@
 
 ## 它管理什么
 
-设置里新增一项 **「思磨力提供方参数 / Smoothly MR」**，排在内置 Models 页之后。
-选择任意提供方路由——`llm-pi-ai` 的 `providers` 字典里的每个条目都可以在这里编辑，
+配置出现在 **插件页** 本 bundle 的详情页（**插件 → dsh-model-reasoning**，分区
+**「思磨力提供方参数 / Smoothly MR」**）。选择任意提供方路由——`llm-pi-ai` 的 `providers` 字典里的每个条目都可以在这里编辑，
 包括目录路由——在五个参数组里进行管理：
 
 - **按模型**——对带显式 `models` 列表的路由，直接编辑所选模型自己的声明：输入模态
@@ -83,7 +83,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 
 **前置要求：** 已安装带 `dsh` CLI 的 DeepSeek Harness，以及 [pnpm](https://pnpm.io)（`dsh plugin` 命令底层调用 pnpm）。这是一个可安装的 **bundle**——由 `dsh` 加载，不是当作库 import。
 
-**兼容性：** 自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`，写入路径自 v0.2.2 起）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。该下限也声明在 `package.json` 中，即对 `@deepseek-ai/dsh-client-ui-settings` 的可选 peer 依赖（`>=0.1.7-rc.1`），使该下限对自 dsh 0.1.7-rc.1 起的 peer 校验门禁可机读：越界的 bundle 会被拒绝，并打印 `dsh plugin allow-version` 的具体解法。早于该门禁的运行时不做任何 peer 校验，因此不会拒绝任何东西：0.1.2–0.1.6 上页面根本加载不出来，而 0.1.7 的 alpha（有 seam、无门禁）照常工作。
+**兼容性：** 自 v0.3.0 起，配置注册在插件页（`plugins.bundle.config`，按 bundle 名索引），因此需要 plugin manager 声明该槽位的 dsh 构建（dsh 0.2.x）。自 v0.2.5 起，本页面通过设置表单服务（`ctx.configForms`）读取、通过 settings **Remote** 命名空间（`ctx.remote.settings`，写入路径自 v0.2.2 起）写入；早于 0.1.7 的 dsh 构建（其前身 `settingsScope` 客户端 seam 已被移除）不受支持（0.1.2–0.1.6 的 dsh 请用 v0.2.4）。该下限也声明在 `package.json` 中，即对 `@deepseek-ai/dsh-client-ui-settings` 的可选 peer 依赖（`>=0.1.7-rc.1`），使该下限对自 dsh 0.1.7-rc.1 起的 peer 校验门禁可机读：越界的 bundle 会被拒绝，并打印 `dsh plugin allow-version` 的具体解法。早于该门禁的运行时不做任何 peer 校验，因此不会拒绝任何东西：0.1.2–0.1.6 上页面根本加载不出来，而 0.1.7 的 alpha（有 seam、无门禁）照常工作。
 
 ### 从 npm 安装（推荐）
 
@@ -93,7 +93,7 @@ host 仍拒绝的值会把 `settings.mutate` 的报错原样展示。写入路�
 dsh plugin --profile web add dsh-model-reasoning
 ```
 
-这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **设置 → 思磨力提供方参数 / Smoothly MR**。
+这会安装预构建的 bundle 并把它追加到 `web` profile。然后**重启 `dsh web`**，打开 **插件 → dsh-model-reasoning**（本 bundle 自己的配置页）。
 
 ### 从 git 安装
 
@@ -129,7 +129,7 @@ cordis.patch.yml                # bundle 层：挂载 client-modules 服务可�
 package.json                    # dsh.bundle（patch）+ dsh.client（web）+ exports["./client"]
 tsdown.config.ts                # 自包含构建：node 半区 + 模块表客户端 bundle
 src/index.ts                    # host apply（空操作）
-src/client/index.ts             # client apply：configForms.get(llm-pi-ai) + 注册 settings.section
+src/client/index.ts             # client apply：configForms.get(llm-pi-ai) + 注册 plugins.bundle.config
 src/client/ProviderParamsSection.tsx  # 设置页（路由 → 参数分组页签 → 各编辑器）
 src/client/params.ts            # 受管字段注册表：取值域、默认值、镜像 host 的校验器、
                                 # 草稿模型、最小 op 差异引擎
