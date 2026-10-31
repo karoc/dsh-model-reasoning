@@ -18,6 +18,7 @@ import { appendFileSync, cpSync, existsSync, mkdtempSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { releaseCheckFailures, undocumentedReleaseFailures } from './lib/release-post-state.mjs'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const VERSION = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version
@@ -94,7 +95,13 @@ console.log('▶ positive control — an unmutated clone must PASS both gates')
   const release = run(dir, 'node scripts/release-check.mjs')
   const guarantees = run(dir, 'node scripts/check-guarantees.mjs')
   rmSync(dir, { recursive: true, force: true })
-  const ok = release.code === 0 && guarantees.code === 0
+  // A PUBLISHED version (and the tag that then sits behind HEAD) fails
+  // release-check by design; only the documented items may explain a non-zero
+  // exit, and any other failure item means the clone is broken.
+  const documented = releaseCheckFailures(release.output).length
+  const undocumented = undocumentedReleaseFailures(release.output)
+  const releaseOk = release.code === 0 || (documented > 0 && undocumented.length === 0)
+  const ok = releaseOk && guarantees.code === 0
   console.log(`${ok ? '  ✅' : '  ❌'} release-check exit=${release.code}, guarantee gate exit=${guarantees.code}`)
   if (!ok) {
     failed += 1

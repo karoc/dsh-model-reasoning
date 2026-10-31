@@ -26,7 +26,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const reportPath = join(root, 'lib/verify-report.json')
 
 /** Failure items the release gate may report without failing this script. */
-const DOCUMENTED_RELEASE_ITEMS = [/already published/]
+import { undocumentedReleaseFailures } from './lib/release-post-state.mjs'
 
 const STEPS = [
   { id: 'syntax:release-check', command: 'node --check scripts/release-check.mjs' },
@@ -71,8 +71,8 @@ for (const step of STEPS) {
   }
   let ok = exit === 0
   if (!ok && step.documentedFailure === true) {
+    const undocumented = undocumentedReleaseFailures(output)
     const items = output.split('\n').filter((line) => /^   - /.test(line))
-    const undocumented = items.filter((line) => !DOCUMENTED_RELEASE_ITEMS.some((pattern) => pattern.test(line)))
     ok = items.length > 0 && undocumented.length === 0
     if (!ok) output += `\n(undocumented release-gate failures: ${undocumented.length})`
   }
