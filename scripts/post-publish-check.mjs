@@ -160,12 +160,21 @@ if (registry.source === 'DSH_POSTPUBLISH_REGISTRY_BASE' || registry.source === '
  */
 function npmProxyEnv() {
   const overlay = {}
+  // ONE npm spawn, not two per config key: every npm invocation runs its log
+  // cleaner (logs-max=10 by default), so the old probe destroyed the publish
+  // forensics it was invoked to verify. `npm_config_logs_max` is raised for the
+  // child and the whole config is read in a single call.
+  let configJson
+  try {
+    configJson = JSON.parse(execSync('npm config list --json', {
+      cwd: root, encoding: 'utf8', timeout: 10000,
+      env: { ...process.env, npm_config_logs_max: '100' },
+    }))
+  } catch { /* npm unavailable: no overlay */ }
   for (const [envKey, configKey] of [['HTTPS_PROXY', 'https-proxy'], ['HTTP_PROXY', 'proxy']]) {
     let configured = ''
-    try {
-      const value = execSync(`npm config get ${configKey}`, { cwd: root, encoding: 'utf8', timeout: 10000 }).trim()
-      if (value !== '' && value !== 'null' && value !== 'undefined') configured = value
-    } catch { /* npm unavailable: no overlay */ }
+    const value = configJson?.[configKey]
+    if (typeof value === 'string' && value !== 'null' && value !== 'undefined') configured = value
     if (configured === '') continue
     // npm's configured proxy WINS over an inherited variable: this check must
     // use the same transport as the `npm publish` it verifies. An inherited
