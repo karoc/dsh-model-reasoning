@@ -60,6 +60,14 @@ const encodedVersion = encodeURIComponent(version)
 const problems = []
 const warnings = []
 
+// `npm publish --dry-run` still runs `postpublish`; there is no upload to verify,
+// and failing it turns a harmless dry run into a red npm invocation.
+if (process.env.npm_config_dry_run === 'true' || process.env.npm_config_dry_run === '1') {
+  console.log('post-publish-check: npm publish --dry-run — no upload to verify; skipping')
+  console.log('post-publish-verdict: DRY_RUN')
+  process.exit(0)
+}
+
 /** Parse a positive integer env seam, falling back to the production default. */
 function positiveInt(raw, fallback) {
   const value = Number.parseInt(String(raw ?? ''), 10)
@@ -76,6 +84,18 @@ const TARBALL_PROPAGATION_INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_
 const TAG_ATTEMPTS = Math.min(ATTEMPTS, 20)
 const TARBALL_TIMEOUT_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_TIMEOUT_MS, 20000)
 const MAX_BUFFER = 8 * 1024 * 1024
+// Hard wall-clock budget for the whole verification: propagation polling must
+// never park `npm publish` for half an hour on a slow/unreachable registry.
+const WALL_CLOCK_BUDGET_MS = positiveInt(process.env.DSH_POSTPUBLISH_BUDGET_MS, 5 * 60_000)
+const STARTED_AT = Date.now()
+const elapsedMs = () => Date.now() - STARTED_AT
+const overBudget = () => elapsedMs() > WALL_CLOCK_BUDGET_MS
+const STRICT = process.argv.includes('--strict')
+// Lifecycle-hook mode: npm forwards `postpublish`'s exit code and suppresses the
+// `+ pkg@ver` success line when it is nonzero, so a landed upload could look
+// failed and invite a duplicate publish. In this mode problems are reported but
+// the process exits 0; a separate `verify:publish --strict` owns the gate.
+const ADVISORY = process.argv.includes('--advisory')
 
 /** `registry = <url>` from one .npmrc, normalized (trailing slashes removed). */
 function npmrcRegistry(file) {
@@ -111,7 +131,12 @@ function resolveRegistry() {
 const registry = resolveRegistry()
 
 console.log(`post-publish-check: ${name}@${version}`)
-console.log(`post-publish-check: registry ${registry.base} (source: ${registry.source})`)
+/** Redact `user:pass@` from a URL before logging it. */
+function redactUrl(value) {
+  return String(value).replace(/\/\/[^/@\s]+@/, '//***@')
+}
+
+console.log(`post-publish-check: registry ${redactUrl(registry.base)} (source: ${registry.source})`)
 if (registry.source === 'DSH_POSTPUBLISH_REGISTRY_BASE' || registry.source === 'npm_config_registry') {
   console.log(`post-publish-check: ⚠️  not the default registry — verifying against an override`)
 }
@@ -145,7 +170,7 @@ function npmProxyEnv() {
     // the curl children and silently break them.
     const inherited = process.env[envKey] ?? ''
     if (inherited !== '' && inherited !== configured) {
-      console.log(`post-publish-check: note — ${envKey}=${inherited} is overridden by npm's configured proxy for the curl fallbacks`)
+      console.log(`post-publish-check: note — ${envKey}=${redactUrl(inherited)} is overridden by npm's configured proxy for the curl fallbacks`)
     }
     overlay[envKey] = configured
   }
@@ -159,7 +184,7 @@ function npmProxyEnv() {
 
 const proxyEnv = npmProxyEnv()
 if (Object.keys(proxyEnv).length > 0) {
-  console.log(`post-publish-check: proxy ${proxyEnv.HTTPS_PROXY ?? proxyEnv.HTTP_PROXY} (from npm config; used by the curl fallbacks)`)
+  console.log(`post-publish-check: proxy ${redactUrl(proxyEnv.HTTPS_PROXY ?? proxyEnv.HTTP_PROXY)} (from npm config; used by the curl fallbacks)`)
 }
 
 /** Registry JSON probe through curl — a child process, so the proxy overlay applies. */
@@ -268,7 +293,7 @@ async function probeTarballPresence(url, timeoutMs = 10000) {
 let visible = false
 let sawVersionAbsent = false
 let versionDoc
-for (let attempt = 0; attempt <= ATTEMPTS && !visible; attempt += 1) {
+for (let attempt = 0; attempt <= ATTEMPTS && !visible && !overBudget(); attempt += 1) {
   if (attempt > 0) {
     if (attempt === 1 || attempt % 10 === 0 || attempt === ATTEMPTS) {
       console.log(`   (version not visible yet — registry index catching up; retry ${attempt}/${ATTEMPTS})`)
@@ -276,23 +301,34 @@ for (let attempt = 0; attempt <= ATTEMPTS && !visible; attempt += 1) {
     await sleep(INTERVAL_MS)
   }
   const result = await probe(`${encodedName}/${encodedVersion}`)
-  if (result.kind === 'data' && typeof result.doc?.version === 'string') {
+  const docName = result.kind === 'data' ? result.doc?.name : undefined
+  const docVersion = result.kind === 'data' ? result.doc?.version : undefined
+  const identityOk = result.kind === 'data' && docVersion === version
+    && (typeof docName !== 'string' || docName === name)
+  if (identityOk) {
     visible = true
     // Keep the document from the polling round: re-probing later would add a
     // second "unknown" failure mode before the tarball checks.
     versionDoc = result.doc
+  } else if (result.kind === 'data') {
+    // A registry/mirror answering a DIFFERENT document for this URL must not be
+    // accepted as proof of our release (integrity checks would run against it).
+    warnings.push(`the registry returned document ${JSON.stringify({ name: docName, version: docVersion })} for ${name}@${version} — identity mismatch; refusing to treat it as this release`)
   } else if (result.kind === 'absent') {
     sawVersionAbsent = true
   }
 }
 
 const packageProbe = await probe(encodedName)
+// A 404 only means "not uploaded" if the registry is actually reachable: a
+// proxy/mirror can answer 404 HTML for everything. `/-/ping` is the control.
+const controlProbe = await probe('-/ping')
 if (visible) {
   console.log(`✅ version ${version} is visible on the registry`)
-} else if (sawVersionAbsent && packageProbe.kind === 'absent') {
+} else if (sawVersionAbsent && packageProbe.kind === 'absent' && controlProbe.kind === 'data') {
   problems.push(
     `${name}@${version} answered a definite 404 for both the version and the package document `
-    + `after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s of polling — the upload did not land`,
+    + `after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s of polling while /-/ping answered 200 — the upload did not land`,
   )
 } else {
   // Index lag, an unreadable probe, or a package that exists without this
@@ -330,7 +366,7 @@ if (visible) {
       `version ${version} is not indexed yet after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s`
       + (packageProbe.kind === 'data'
         ? ` (the package document is live${latestNote}, and ${presence.kind === 'present'
-          ? 'the version tarball is already served, so the upload landed'
+          ? 'the version tarball is served, so this release materialized (content not verified in this branch)'
           : 'the tarball probe was inconclusive'}) — the index is still catching up`
         : ' (the package document could not be read either — probe failures are not treated as absence)'),
     )
@@ -343,7 +379,8 @@ if (visible) {
 //    mismatch can only be tag-propagation lag — never a failed publish.
 if (visible) {
   let latest
-  for (let attempt = 0; attempt <= TAG_ATTEMPTS; attempt += 1) {
+  let taggedExactly = false
+  for (let attempt = 0; attempt <= TAG_ATTEMPTS && !overBudget(); attempt += 1) {
     if (attempt > 0) {
       if (attempt === 1 || attempt % 10 === 0) {
         console.log(`   (dist-tag "latest" not yet ${version} — tag update catching up; retry ${attempt}/${TAG_ATTEMPTS})`)
@@ -352,13 +389,16 @@ if (visible) {
     }
     const result = await probe(encodedName)
     if (result.kind === 'data') {
-      const tag = result.doc?.['dist-tags']?.latest
-      latest = typeof tag === 'string' ? tag : undefined
-      if (latest === version) break
+      const tags = result.doc?.['dist-tags'] ?? {}
+      latest = typeof tags.latest === 'string' ? tags.latest : undefined
+      taggedExactly = Object.values(tags).some(tag => tag === version)
+      if (taggedExactly) break
     }
   }
-  if (latest === version) {
-    console.log('✅ dist-tags.latest matches the published version')
+  if (taggedExactly) {
+    console.log(latest === version
+      ? '✅ dist-tags.latest matches the published version'
+      : `✅ a dist-tag points at ${version} (latest is ${latest ?? 'unreadable'}; prerelease or explicit --tag publish)`)
   } else {
     warnings.push(`dist-tags.latest ${describeTag(latest, version)}`)
   }
@@ -392,7 +432,7 @@ function describeTag(latest, expected) {
 //    never fatal (the upload already succeeded), and a tar that cannot read the
 //    stream counts as transport, not as a content mismatch.
 function expectedEntries(manifest) {
-  const files = Array.isArray(manifest.files) ? manifest.files.filter((entry) => typeof entry === 'string') : []
+  const files = Array.isArray(manifest.files) ? manifest.files.filter((entry) => typeof entry === 'string' && !entry.startsWith('!')) : []
   const entries = files.map((entry) => entry.replace(/^\.\//, ''))
   if (!entries.includes('package.json')) entries.push('package.json')
   return entries
@@ -403,10 +443,9 @@ function listingHasEntry(listing, entry) {
     const prefix = entry.slice(0, entry.indexOf('*')).replace(/\/$/, '')
     return prefix === '' ? true : listing.some((line) => line.startsWith(`package/${prefix}`))
   }
-  if (entry.endsWith('/')) {
-    return listing.some((line) => line.startsWith(`package/${entry}`))
-  }
-  return listing.includes(`package/${entry}`)
+  // npm `files` accepts a directory without the trailing slash: `lib` must
+  // match `package/lib/index.js`, not demand a literal `package/lib` entry.
+  return listing.includes(`package/${entry}`) || listing.some((line) => line.startsWith(`package/${entry}/`))
 }
 
 async function downloadTarball(url) {
@@ -427,7 +466,7 @@ function curlTarball(url) {
   try {
     const result = spawnSync(
       'curl',
-      ['-fsS', '-o', body, '-w', '%{http_code}', '--max-time', String(Math.ceil(TARBALL_TIMEOUT_MS / 1000)), url],
+      ['-fsSL', '--proto', '=https,http', '--max-redirs', '3', '-o', body, '-w', '%{http_code}', '--max-time', String(Math.ceil(TARBALL_TIMEOUT_MS / 1000)), '--', url],
       { maxBuffer: MAX_BUFFER, env: { ...process.env, ...proxyEnv } },
     )
     if (result.error?.code === 'ENOENT' || result.status === 127) return { kind: 'no-curl' }
@@ -480,13 +519,64 @@ function gradeDownloadFailure(result) {
   }
 }
 
+/**
+ * Trust only http(s) tarball URLs on the registry's own origin (cross-origin
+ * redirects/URLs are how a mirror or compromised metadata could hand us bytes
+ * from somewhere else; an explicit env opt-out exists for CDN-fronted mirrors).
+ * @param value - candidate URL from dist.tarball.
+ * @returns a rejection reason, or undefined when the URL is acceptable.
+ */
+function tarballUrlProblem(value) {
+  let parsed
+  try {
+    parsed = new URL(value)
+  } catch {
+    return 'the registry tarball URL is not a valid URL'
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    return `the registry tarball URL uses unsupported protocol ${parsed.protocol}`
+  }
+  const registryOrigin = new URL(registry.base).origin
+  if (process.env.DSH_POSTPUBLISH_ALLOW_CROSS_ORIGIN_TARBALL !== '1' && parsed.origin !== registryOrigin) {
+    return `the registry tarball host ${parsed.origin} differs from the registry origin ${registryOrigin} (set DSH_POSTPUBLISH_ALLOW_CROSS_ORIGIN_TARBALL=1 for CDN-fronted mirrors)`
+  }
+  return undefined
+}
+
+/**
+ * Bind the served bytes to the publish via dist.integrity (sha512) or the
+ * legacy dist.shasum (sha1). A mismatch is FATAL: same-filename substitution is
+ * exactly what this check exists to catch.
+ * @param doc - version document carrying dist.integrity/shasum.
+ * @param buffer - downloaded tarball bytes.
+ * @returns `{ok:true}` / `{ok:false, reason}` / `{ok:true, unverified:true}`.
+ */
+function verifyIntegrity(doc, buffer) {
+  const integrity = doc?.dist?.integrity
+  if (typeof integrity === 'string' && /^sha512-[A-Za-z0-9+/=]+$/.test(integrity)) {
+    const expected = integrity.slice('sha512-'.length)
+    const actual = createHash('sha512').update(buffer).digest('base64')
+    return actual === expected ? { ok: true } : { ok: false, reason: `sha512 ${actual.slice(0, 16)}… != dist.integrity ${expected.slice(0, 16)}…` }
+  }
+  const shasum = doc?.dist?.shasum
+  if (typeof shasum === 'string' && /^[0-9a-f]{40}$/.test(shasum)) {
+    const actual = createHash('sha1').update(buffer).digest('hex')
+    return actual === shasum ? { ok: true } : { ok: false, reason: `sha1 ${actual.slice(0, 16)}… != dist.shasum ${shasum.slice(0, 16)}…` }
+  }
+  return { ok: true, unverified: true }
+}
+
 if (visible) {
   const tarballUrl = versionDoc?.dist?.tarball
   if (typeof tarballUrl !== 'string' || tarballUrl === '') {
     warnings.push('the registry returned no tarball URL — tarball contents were not verified; re-run this script later')
   } else {
+    const urlProblem = tarballUrlProblem(tarballUrl)
+    if (urlProblem !== undefined) {
+      problems.push(urlProblem)
+    } else {
     let download = await obtainTarball(tarballUrl)
-    for (let attempt = 1; attempt <= TARBALL_PROPAGATION_ATTEMPTS
+    for (let attempt = 1; attempt <= TARBALL_PROPAGATION_ATTEMPTS && !overBudget()
       && download.kind === 'http' && (download.status === 404 || download.status === 410); attempt += 1) {
       console.log(`   (tarball not served yet — registry/CDN propagation; retry ${attempt}/${TARBALL_PROPAGATION_ATTEMPTS})`)
       await sleep(TARBALL_PROPAGATION_INTERVAL_MS)
@@ -499,21 +589,31 @@ if (visible) {
       if (propagating) {
         warnings.push(
           `the tarball is still not served after ~${Math.round((TARBALL_PROPAGATION_ATTEMPTS * TARBALL_PROPAGATION_INTERVAL_MS) / 1000)}s `
-          + `(HTTP ${download.status}) while version ${version} and dist-tags.latest are visible. `
-          + 'Publication is CONFIRMED; tarball contents were not verified (registry/CDN propagation). '
-          + 'Do NOT re-publish; re-run this check later.',
+          + `(HTTP ${download.status}) while version ${version} is visible. `
+          + 'The upload is evidenced by the registry documents, but the served bytes are NOT verified '
+          + '(status: PENDING_PROPAGATION). Do NOT re-publish; re-run this check later.',
         )
       } else if (grade.fatal) problems.push(`could not verify the published tarball: ${grade.reason}`)
       else warnings.push(`could not verify the published tarball: ${grade.reason} — re-run this script once the network recovers`)
     } else {
       const buffer = download.buffer
+      const integrity = verifyIntegrity(versionDoc, buffer)
+      if (integrity.ok !== true) {
+        problems.push(`the published tarball does not match dist.integrity: ${integrity.reason}`)
+      } else if (integrity.unverified === true) {
+        warnings.push('the version document carries no dist.integrity/shasum — served bytes could not be bound to the publish')
+      } else {
+        console.log('✅ published tarball sha512 matches dist.integrity')
+      }
       let listing
       try {
         listing = execSync('tar -tzf -', {
           cwd: root, encoding: 'utf8', timeout: 25000, maxBuffer: MAX_BUFFER, input: buffer,
         }).split('\n').filter((line) => line.trim() !== '')
       } catch (error) {
-        warnings.push(`could not list the published tarball (${firstLine(error.message)}) — treated as transport, not as a content mismatch`)
+        // The body arrived complete (2xx) but is not a readable tar stream:
+        // that is a corrupt artifact, not a transport failure.
+        problems.push(`the published tarball is not a readable tar archive: ${firstLine(error.message)}`)
       }
       if (listing !== undefined) {
         const expected = expectedEntries(pkg)
@@ -521,6 +621,14 @@ if (visible) {
         if (listing.length === 0) problems.push('the published tarball listing is empty')
         else if (missing.length > 0) problems.push(`the published tarball is missing: ${missing.join(', ')}`)
         else console.log(`✅ published tarball contains all ${expected.length} expected entries`)
+        const allowedExtra = /(^package\/(package\.json|README(\.[^/]*)?|LICEN[SC]E(\.[^/]*)?|CHANGELOG(\.[^/]*)?|npmignore|\.npmignore)$)/
+        const extra = listing.filter((line) => {
+          const rel = line.replace(/^package\//, '')
+          if (rel === '' || line.endsWith('/')) return false
+          if (allowedExtra.test(line)) return false
+          return !expected.some((entry) => rel === entry || rel.startsWith(`${entry}/`) || (entry.includes('*') && rel.startsWith(entry.slice(0, entry.indexOf('*')))))
+        })
+        if (extra.length > 0) warnings.push(`the tarball ships ${extra.length} unexpected entr${extra.length === 1 ? 'y' : 'ies'} (e.g. ${extra.slice(0, 3).join(', ')}) — check the files whitelist`)
 
         const localLib = join(root, 'lib/index.js')
         if (existsSync(localLib) && listing.includes('package/lib/index.js')) {
@@ -544,14 +652,25 @@ if (visible) {
         }
       }
     }
+    }
   }
 }
+
+const definiteAbsence = problems.some((problem) => problem.includes('definite 404'))
+const verdict = problems.length > 0
+  ? (definiteAbsence ? 'NOT_PUBLISHED' : 'CONTENT_MISMATCH')
+  : warnings.length > 0 ? 'PENDING_PROPAGATION' : 'CONFIRMED'
+console.log(`post-publish-verdict: ${verdict}`)
 
 if (problems.length > 0) {
   console.error('\n❌ post-publish-check FAILED:')
   for (const problem of problems) console.error(`   - ${problem}`)
   console.error(`\n   ${name}@${version} may or may not be live — verify before re-publishing:`)
   console.error(`   node ${join('scripts', 'post-publish-check.mjs')}  (re-runs these checks)`)
+  if (ADVISORY) {
+    console.log('post-publish-check: ADVISORY mode (npm lifecycle hook) — reporting only, exiting 0')
+    process.exit(0)
+  }
   process.exit(1)
 }
 
@@ -560,7 +679,8 @@ if (warnings.length > 0) {
   for (const warning of warnings) console.log(`   - ${warning}`)
   console.log(`\n   Re-run to complete the checks once the index catches up:`)
   console.log(`   node ${join('scripts', 'post-publish-check.mjs')}`)
-  process.exit(0)
+  // --strict is for CI: PENDING_PROPAGATION is not a green state for a gate.
+  process.exit(STRICT ? 3 : 0)
 }
 
 console.log('\n✅ post-publish-check passed: release is live and consistent on npm.')

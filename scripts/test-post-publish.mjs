@@ -17,7 +17,7 @@
  *  10. tarball 503         → exit 0 (answered but unusable, retried once)
  *  11. tarball 407         → exit 0 (proxy refusal, retried once)
  *  12. tarball 403         → exit 1 (retried once, then fatal)
- *  13. truncated gzip      → exit 0 (unreadable tar stream = transport)
+ *  13. truncated gzip      → exit 1 (complete 2xx body that is not a readable tar = corrupt artifact)
  *  14. hanging endpoint    → exit 0 (fetch timeout + curl fallback)
  *  15. no tarball URL      → exit 0 with a re-run instruction
  *
@@ -25,6 +25,7 @@
  */
 import { execSync, spawn } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -35,6 +36,15 @@ const source = join(here, 'post-publish-check.mjs')
 const version = '1.2.3'
 const files = ['lib/index.js', 'cordis.patch.yml', 'README.md', 'LICENSE']
 const libBody = 'module.exports = {}\n// fixture artifact\n'
+/** sha512 integrity of one served body, as npm records it in dist.integrity. */
+const sha512 = (buffer) => createHash('sha512').update(buffer).digest('base64')
+/** The bytes this scenario's /tarball/<mode> route serves (present modes only). */
+const servedBytes = (mode) => mode === 'missing-entry'
+  ? tarballs.missing
+  : mode === 'truncated'
+    ? tarballs.ok.subarray(0, Math.floor(tarballs.ok.length / 2))
+    : tarballs.ok
+const distDoc = (mode) => ({ tarball: `${base}/tarball/${mode}`, integrity: `sha512-${sha512(servedBytes(mode))}` })
 
 const work = mkdtempSync(join(tmpdir(), 'dsh-postpublish-fixture-'))
 const pkgRoot = join(work, 'pkg')
@@ -117,11 +127,16 @@ const server = createServer((request, response) => {
           [version]: {
             name: 'fixture-pkg',
             version,
-            ...(state.omitTarball ? {} : { dist: { tarball: `${base}/tarball/${state.mode}` } }),
+            ...(state.omitTarball ? {} : { dist: distDoc(state.mode) }),
           },
         }
       : {},
   })
+  if (path === '/-/ping') {
+    response.writeHead(200, { 'content-type': 'application/json' })
+    response.end('{}')
+    return
+  }
   if (path === '/fixture-pkg') {
     if (!state.packageVisible) {
       response.writeHead(404, { 'content-type': 'application/json' })
@@ -142,7 +157,7 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify({
       name: 'fixture-pkg',
       version,
-      ...(state.omitTarball ? {} : { dist: { tarball: `${base}/tarball/${state.mode}` } }),
+      ...(state.omitTarball ? {} : { dist: distDoc(state.mode) }),
     }))
     return
   }
@@ -253,7 +268,7 @@ const scenarios = [
     }),
     expect: (result) => result.code === 0
       && result.output.includes('is not indexed yet')
-      && result.output.includes('the version tarball is already served, so the upload landed')
+      && result.output.includes('the version tarball is served, so this release materialized')
       && !result.output.includes('is NOT on the registry')
       && result.output.includes('Re-run to complete the checks'),
   },
@@ -327,9 +342,9 @@ const scenarios = [
     expect: (result) => result.code === 1 && result.output.includes('HTTP 403') && hits.tarball === 2,
   },
   {
-    name: 'tarball truncated (gzip magic ok, stream broken, non-fatal)',
+    name: 'tarball truncated (gzip magic ok, stream broken, corrupt artifact, fatal)',
     setup: () => Object.assign(state, { mode: 'truncated', tag: version, versionVisible: true, packageVisible: true }),
-    expect: (result) => result.code === 0 && result.output.includes('could not list the published tarball') && hits.tarball === 1,
+    expect: (result) => result.code === 1 && result.output.includes('not a readable tar archive') && hits.tarball === 1,
   },
   {
     name: 'tarball hangs (timeout + curl fallback, non-fatal)',

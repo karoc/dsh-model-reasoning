@@ -44,11 +44,12 @@
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs",
     "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",
-    "postpublish": "node scripts/post-publish-check.mjs",
+    "postpublish": "node scripts/post-publish-check.mjs --advisory",
     "verify:guarantees": "node scripts/check-guarantees.mjs",
     "test:controls": "node scripts/test-negative-controls.mjs",
     "verify:all": "node scripts/verify-all.mjs",
-    "verify:fresh": "node scripts/verify-all.mjs --check-fresh"
+    "verify:fresh": "node scripts/verify-all.mjs --check-fresh",
+    "verify:publish": "node scripts/post-publish-check.mjs --strict"
   },
   "engines": {
     "node": ">=18"
