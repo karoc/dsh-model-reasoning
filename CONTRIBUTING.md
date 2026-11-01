@@ -115,3 +115,22 @@ and the publish aborts — fix the item, then release the NEW version.
 ## Reporting issues
 
 Open an issue at <https://github.com/karoc/dsh-model-reasoning/issues>.
+
+## Publish verification contract (2026-11-01)
+
+`npm publish` forwards lifecycle-hook exit codes: a nonzero `postpublish` makes a
+**landed** upload look failed. Therefore:
+
+- `postpublish` runs `node scripts/post-publish-check.mjs --advisory`: it reports
+  the verdict (`CONFIRMED` / `PENDING_PROPAGATION` / `UNVERIFIED` /
+  `CONTENT_MISMATCH` / `NOT_PUBLISHED`) but always exits 0.
+- `npm run verify:publish` is the strict gate (`--strict`; PENDING exits 3).
+- Preferred release path: `npm run publish:release` — gates, builds once, packs,
+  verifies the packed bytes (sha512 + `files` whitelist → `.verify/pack.json`),
+  publishes the tarball (npm runs no lifecycle scripts for a tarball argument),
+  then verifies advisory.
+- If verification reports `PENDING_PROPAGATION` after a publish: do **not**
+  re-publish. Wait 10–30 minutes and re-run `npm run verify:publish` (a retry
+  that returns 409 means the earlier upload landed — that is success).
+- Env seams: `DSH_POSTPUBLISH_{ATTEMPTS,INTERVAL_MS,TARBALL_ATTEMPTS,TARBALL_INTERVAL_MS,TARBALL_TIMEOUT_MS,BUDGET_MS}`,
+  `DSH_POSTPUBLISH_ALLOW_CROSS_ORIGIN_TARBALL=1` for CDN-fronted mirrors.
