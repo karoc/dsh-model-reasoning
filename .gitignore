@@ -19,3 +19,6 @@ pnpm-debug.log*
 
 # Session workspace state (agent kanban board)
 KANBAN.json
+
+# publish:release pack record (gitignored)
+.verify/
