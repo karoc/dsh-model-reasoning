@@ -42,7 +42,7 @@
  * Like every lifecycle script, it is skipped by `npm publish --ignore-scripts`.
  */
 import { execSync, spawnSync } from 'node:child_process'
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -74,19 +74,23 @@ function positiveInt(raw, fallback) {
   return Number.isFinite(value) && value > 0 ? value : fallback
 }
 
-const ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_ATTEMPTS, 100)
+const ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_ATTEMPTS, 20)
 const INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_INTERVAL_MS, 3000)
 // A tarball 404 right after upload is registry/CDN propagation, not proof the
 // upload was dropped: on 2026-10-31, 0.5.0 was visible with `latest` moved while
 // the tarball still answered 404; the same URL served fine minutes later.
-const TARBALL_PROPAGATION_ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_ATTEMPTS, 6)
-const TARBALL_PROPAGATION_INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_INTERVAL_MS, 10_000)
-const TAG_ATTEMPTS = Math.min(ATTEMPTS, 20)
+const TARBALL_PROPAGATION_ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_ATTEMPTS, 8)
+const TARBALL_PROPAGATION_INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_INTERVAL_MS, 5_000)
+// Registry 404s are negatively cached (~300 s on npm's CDN). A unique query
+// string is the only reliable cache bypass, so every retry after the first adds
+// `?cb=<nonce>`; a canonical-URL 404 alone never proves absence.
+const NONCE = () => `cb=${randomUUID()}`
+const TAG_ATTEMPTS = Math.min(ATTEMPTS, 10)
 const TARBALL_TIMEOUT_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_TIMEOUT_MS, 20000)
 const MAX_BUFFER = 8 * 1024 * 1024
 // Hard wall-clock budget for the whole verification: propagation polling must
 // never park `npm publish` for half an hour on a slow/unreachable registry.
-const WALL_CLOCK_BUDGET_MS = positiveInt(process.env.DSH_POSTPUBLISH_BUDGET_MS, 5 * 60_000)
+const WALL_CLOCK_BUDGET_MS = positiveInt(process.env.DSH_POSTPUBLISH_BUDGET_MS, 3 * 60_000)
 const STARTED_AT = Date.now()
 const elapsedMs = () => Date.now() - STARTED_AT
 const overBudget = () => elapsedMs() > WALL_CLOCK_BUDGET_MS
@@ -211,7 +215,7 @@ function curlProbe(path, timeoutMs) {
 }
 
 /** Three-state registry probe (D19/D25). Falls back to curl when a proxy is configured. */
-async function probe(path, timeoutMs = 10000) {
+async function probe(path, timeoutMs = 8000) {
   try {
     const response = await fetch(`${registry.base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) })
     if (response.status === 404) return { kind: 'absent' }
@@ -300,7 +304,7 @@ for (let attempt = 0; attempt <= ATTEMPTS && !visible && !overBudget(); attempt 
     }
     await sleep(INTERVAL_MS)
   }
-  const result = await probe(`${encodedName}/${encodedVersion}`)
+  const result = await probe(`${encodedName}/${encodedVersion}${attempt > 0 ? `?${NONCE()}` : ''}`)
   const docName = result.kind === 'data' ? result.doc?.name : undefined
   const docVersion = result.kind === 'data' ? result.doc?.version : undefined
   const identityOk = result.kind === 'data' && docVersion === version
@@ -326,10 +330,19 @@ const controlProbe = await probe('-/ping')
 if (visible) {
   console.log(`✅ version ${version} is visible on the registry`)
 } else if (sawVersionAbsent && packageProbe.kind === 'absent' && controlProbe.kind === 'data') {
-  problems.push(
-    `${name}@${version} answered a definite 404 for both the version and the package document `
-    + `after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s of polling while /-/ping answered 200 — the upload did not land`,
-  )
+  // A cached 404 is not proof of absence: re-probe both documents with a cache
+  // bypass before claiming the upload never landed.
+  const nonce = NONCE()
+  const versionFresh = await probe(`${encodedName}/${encodedVersion}?${nonce}`)
+  const packageFresh = await probe(`${encodedName}?${nonce}`)
+  if (versionFresh.kind === 'absent' && packageFresh.kind === 'absent') {
+    problems.push(
+      `${name}@${version} answered a cache-bypassed 404 for both the version and the package document `
+      + `after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s of polling while /-/ping answered 200 — the upload did not land`,
+    )
+  } else {
+    warnings.push('uncached probes disagree with the cached 404s — the registry index is propagating; re-run this check later')
+  }
 } else {
   // Index lag, an unreadable probe, or a package that exists without this
   // version yet: none of these may fail an already-uploaded release. What they
@@ -344,9 +357,13 @@ if (visible) {
   const separator = encodedName.lastIndexOf('%2F')
   const basename = separator < 0 ? encodedName : encodedName.slice(separator + 3)
   const tarballUrl = `${registry.base}/${encodedName}/-/${basename}-${encodedVersion}.tgz`
-  const presence = sawVersionAbsent && packageProbe.kind === 'data'
+  let presence = sawVersionAbsent && packageProbe.kind === 'data'
     ? await probeTarballPresence(tarballUrl)
     : { kind: 'unknown', error: new Error('the package document is not readable, so absence is unproven') }
+  if (presence.kind === 'absent') {
+    const fresh = await probeTarballPresence(`${tarballUrl}?${NONCE()}`)
+    if (fresh.kind !== 'absent') presence = fresh
+  }
   const latestNote = observed === undefined ? '' : `, latest ${observed}`
 
   if (presence.kind === 'absent') {
@@ -580,7 +597,7 @@ if (visible) {
       && download.kind === 'http' && (download.status === 404 || download.status === 410); attempt += 1) {
       console.log(`   (tarball not served yet — registry/CDN propagation; retry ${attempt}/${TARBALL_PROPAGATION_ATTEMPTS})`)
       await sleep(TARBALL_PROPAGATION_INTERVAL_MS)
-      download = await obtainTarball(tarballUrl)
+      download = await obtainTarball(`${tarballUrl}?${NONCE()}`)
     }
     const grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
 

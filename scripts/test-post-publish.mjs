@@ -291,7 +291,7 @@ const scenarios = [
   {
     name: 'definite 404 for version and package',
     setup: () => Object.assign(state, { mode: 'normal', versionVisible: false, packageVisible: false }),
-    expect: (result) => result.code === 1 && result.output.includes('definite 404'),
+    expect: (result) => result.code === 1 && result.output.includes('cache-bypassed 404'),
   },
   {
     name: 'tag lags behind',

@@ -49,7 +49,8 @@
     "test:controls": "node scripts/test-negative-controls.mjs",
     "verify:all": "node scripts/verify-all.mjs",
     "verify:fresh": "node scripts/verify-all.mjs --check-fresh",
-    "verify:publish": "node scripts/post-publish-check.mjs --strict"
+    "verify:publish": "node scripts/post-publish-check.mjs --strict",
+    "publish:release": "node scripts/publish.mjs"
   },
   "engines": {
     "node": ">=18"
