@@ -40,7 +40,7 @@
     "bundle": "tsdown --config ./tsdown.config.ts",
     "prepare": "tsdown --config ./tsdown.config.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsc --noEmit && node --test tests/*.test.ts && node scripts/check-guarantees.mjs && node scripts/test-negative-controls.mjs",
+    "test": "tsc --noEmit && node --test tests/*.test.ts && node scripts/check-guarantees.mjs && node scripts/test-post-publish.mjs && node scripts/test-negative-controls.mjs",
     "release:check": "node scripts/release-check.mjs",
     "prepack": "node scripts/release-check.mjs",
     "prepublishOnly": "node scripts/release-check.mjs && tsdown --config ./tsdown.config.ts",

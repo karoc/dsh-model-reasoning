@@ -23,7 +23,12 @@
  *     transport failures (DNS/connect/timeout/no curl), HTTP 5xx / 407,
  *     unavailable dist-tags, a `latest` tag that lags or points elsewhere, a
  *     lib/index.js checksum difference, and every "index still catching up"
- *     outcome.
+ *     outcome. The "version document 404 while the package document is live"
+ *     case is split by a TARBALL PRESENCE PROBE: a served tarball means the
+ *     upload landed (benign index lag), a 404 tarball means the registry never
+ *     created this version — npm exits 0 for an accepted-but-dropped publish
+ *     (202 is < 400 for npm-registry-fetch), so the report must say "not on the
+ *     registry, retry `npm publish`" instead of "the upload landed".
  *
  * Registry resolution (B4): DSH_POSTPUBLISH_REGISTRY_BASE → npm_config_registry
  * → ./.npmrc → $NPM_CONFIG_USERCONFIG (or ~/.npmrc) → package.json
@@ -63,6 +68,11 @@ function positiveInt(raw, fallback) {
 
 const ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_ATTEMPTS, 100)
 const INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_INTERVAL_MS, 3000)
+// A tarball 404 right after upload is registry/CDN propagation, not proof the
+// upload was dropped: on 2026-10-31, 0.5.0 was visible with `latest` moved while
+// the tarball still answered 404; the same URL served fine minutes later.
+const TARBALL_PROPAGATION_ATTEMPTS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_ATTEMPTS, 6)
+const TARBALL_PROPAGATION_INTERVAL_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_INTERVAL_MS, 10_000)
 const TAG_ATTEMPTS = Math.min(ATTEMPTS, 20)
 const TARBALL_TIMEOUT_MS = positiveInt(process.env.DSH_POSTPUBLISH_TARBALL_TIMEOUT_MS, 20000)
 const MAX_BUFFER = 8 * 1024 * 1024
@@ -106,7 +116,76 @@ if (registry.source === 'DSH_POSTPUBLISH_REGISTRY_BASE' || registry.source === '
   console.log(`post-publish-check: ⚠️  not the default registry — verifying against an override`)
 }
 
-/** Three-state registry probe (D19/D25). */
+/**
+ * The proxy npm itself would use, as an environment overlay for CHILD transports.
+ *
+ * Node's fetch ignores npm's `.npmrc` proxy settings, and the proxy variables
+ * plus `NODE_USE_ENV_PROXY` are sampled when the process starts (verified on
+ * Node 24.18: setting them inside the script changes nothing), so the
+ * in-process fetch below goes DIRECT. On a network where the registry is only
+ * reachable through a proxy every probe then degrades to `unknown` and this
+ * check silently verifies nothing — the curl fallbacks are child processes, so
+ * they DO inherit this overlay and keep working. `NO_PROXY` always keeps
+ * loopback direct (the offline fixtures' stub registry lives there).
+ * @returns an env overlay, empty when npm has no proxy configured.
+ */
+function npmProxyEnv() {
+  const overlay = {}
+  for (const [envKey, configKey] of [['HTTPS_PROXY', 'https-proxy'], ['HTTP_PROXY', 'proxy']]) {
+    let configured = ''
+    try {
+      const value = execSync(`npm config get ${configKey}`, { cwd: root, encoding: 'utf8', timeout: 10000 }).trim()
+      if (value !== '' && value !== 'null' && value !== 'undefined') configured = value
+    } catch { /* npm unavailable: no overlay */ }
+    if (configured === '') continue
+    // npm's configured proxy WINS over an inherited variable: this check must
+    // use the same transport as the `npm publish` it verifies. An inherited
+    // variable that differs (e.g. the desktop shell's own forward proxy, which
+    // does not route registry.npmjs.org) would otherwise take precedence for
+    // the curl children and silently break them.
+    const inherited = process.env[envKey] ?? ''
+    if (inherited !== '' && inherited !== configured) {
+      console.log(`post-publish-check: note — ${envKey}=${inherited} is overridden by npm's configured proxy for the curl fallbacks`)
+    }
+    overlay[envKey] = configured
+  }
+  if (Object.keys(overlay).length === 0) return {}
+  const noProxy = (process.env.NO_PROXY ?? process.env.no_proxy ?? '')
+    .split(',').map((entry) => entry.trim()).filter((entry) => entry !== '')
+  for (const host of ['127.0.0.1', 'localhost', '::1']) if (!noProxy.includes(host)) noProxy.push(host)
+  overlay.NO_PROXY = noProxy.join(',')
+  return overlay
+}
+
+const proxyEnv = npmProxyEnv()
+if (Object.keys(proxyEnv).length > 0) {
+  console.log(`post-publish-check: proxy ${proxyEnv.HTTPS_PROXY ?? proxyEnv.HTTP_PROXY} (from npm config; used by the curl fallbacks)`)
+}
+
+/** Registry JSON probe through curl — a child process, so the proxy overlay applies. */
+function curlProbe(path, timeoutMs) {
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-postpublish-'))
+  const body = join(dir, 'body.json')
+  try {
+    const result = spawnSync(
+      'curl',
+      ['-sS', '-o', body, '-w', '%{http_code}', '--max-time', String(Math.ceil(timeoutMs / 1000)), `${registry.base}/${path}`],
+      { maxBuffer: MAX_BUFFER, env: { ...process.env, ...proxyEnv } },
+    )
+    if (result.error?.code === 'ENOENT' || result.status === 127) return { kind: 'no-curl' }
+    if (result.status !== 0) return { kind: 'unknown', error: new Error(`curl exited ${result.status}`) }
+    const status = Number.parseInt(String(result.stdout ?? '').trim(), 10)
+    if (status === 404) return { kind: 'absent' }
+    if (!(status >= 200 && status < 300)) return { kind: 'unknown', error: new Error(`HTTP ${status}`) }
+    return { kind: 'data', doc: JSON.parse(readFileSync(body, 'utf8')) }
+  } catch (error) {
+    return { kind: 'unknown', error }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+/** Three-state registry probe (D19/D25). Falls back to curl when a proxy is configured. */
 async function probe(path, timeoutMs = 10000) {
   try {
     const response = await fetch(`${registry.base}/${path}`, { signal: AbortSignal.timeout(timeoutMs) })
@@ -114,6 +193,71 @@ async function probe(path, timeoutMs = 10000) {
     if (!response.ok) return { kind: 'unknown', error: new Error(`HTTP ${response.status}`) }
     return { kind: 'data', doc: await response.json() }
   } catch (error) {
+    // The in-process fetch cannot use npm's proxy (see npmProxyEnv); a
+    // configured proxy means curl is the only transport that can reach the
+    // registry here, so try it before reporting the probe as unknown.
+    if (Object.keys(proxyEnv).length > 0) {
+      const viaCurl = curlProbe(path, timeoutMs)
+      if (viaCurl.kind !== 'no-curl') return viaCurl
+    }
+    return { kind: 'unknown', error }
+  }
+}
+
+/** Curl status probe for a tarball URL (child process, so the proxy overlay applies). */
+function curlTarballStatus(url, timeoutMs) {
+  try {
+    const result = spawnSync(
+      'curl',
+      ['-sS', '-I', '-o', '/dev/null', '-w', '%{http_code}', '--max-time', String(Math.ceil(timeoutMs / 1000)), url],
+      { maxBuffer: MAX_BUFFER, env: { ...process.env, ...proxyEnv } },
+    )
+    if (result.error?.code === 'ENOENT' || result.status === 127) return { kind: 'unknown', error: new Error('curl is unavailable') }
+    const status = Number.parseInt(String(result.stdout ?? '').trim(), 10)
+    if (!Number.isFinite(status)) return { kind: 'unknown', error: new Error(`curl exited ${result.status}`) }
+    return interpretTarballStatus(status)
+  } catch (error) {
+    return { kind: 'unknown', error }
+  }
+}
+
+/** Grade one HTTP status into tarball presence. */
+function interpretTarballStatus(status) {
+  if (status === 404 || status === 410) return { kind: 'absent' }
+  if (status >= 200 && status < 300) return { kind: 'present' }
+  return { kind: 'unknown', error: new Error(`HTTP ${status}`) }
+}
+
+/**
+ * Does the registry serve this exact version's tarball?
+ *
+ * This is the discriminator the version document cannot provide: npm's publish
+ * PUT succeeds on ANY status below 400 (`npm-registry-fetch` only throws on
+ * >= 400), so a registry that answers `202 Accepted` makes `npm publish` print
+ * success and exit 0 while creating nothing — the version document then 404s
+ * for a reason that has NOTHING to do with index lag, and claiming "the upload
+ * landed" hides a release that must be retried (live incident: 0.4.7,
+ * 2026-09-30). The tarball URL is deterministic (`/<name>/-/<basename>-<v>.tgz`)
+ * precisely when the version document is missing, so it is probed directly.
+ *
+ * @param url - absolute tarball URL.
+ * @param timeoutMs - per-attempt bound.
+ * @returns `present`, `absent`, or `unknown` (never fatal on transport).
+ */
+async function probeTarballPresence(url, timeoutMs = 10000) {
+  try {
+    const head = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(timeoutMs) })
+    // Some CDNs reject HEAD; a one-byte ranged GET is the portable fallback.
+    if (head.status === 405 || head.status === 501) {
+      const ranged = await fetch(url, { headers: { range: 'bytes=0-0' }, signal: AbortSignal.timeout(timeoutMs) })
+      return interpretTarballStatus(ranged.status)
+    }
+    return interpretTarballStatus(head.status)
+  } catch (error) {
+    if (Object.keys(proxyEnv).length > 0) {
+      const viaCurl = curlTarballStatus(url, timeoutMs)
+      if (viaCurl.kind !== 'unknown' || viaCurl.error?.message !== 'curl is unavailable') return viaCurl
+    }
     return { kind: 'unknown', error }
   }
 }
@@ -152,16 +296,46 @@ if (visible) {
   )
 } else {
   // Index lag, an unreadable probe, or a package that exists without this
-  // version yet: none of these may fail an already-uploaded release.
+  // version yet: none of these may fail an already-uploaded release. What they
+  // must NOT do is claim the upload landed — the version document is missing,
+  // so the tarball is probed as the discriminator (a 202 Accepted publish makes
+  // npm exit 0 without creating anything).
   const observed = packageProbe.kind === 'data' && typeof packageProbe.doc?.['dist-tags']?.latest === 'string'
     ? packageProbe.doc['dist-tags'].latest
     : undefined
-  warnings.push(
-    `version ${version} is not indexed yet after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s`
-    + (packageProbe.kind === 'data'
-      ? ` (the package document is live${observed === undefined ? '' : `, latest ${observed}`}) — the upload landed, the index is still catching up`
-      : ' (the package document could not be read either — probe failures are not treated as absence)'),
-  )
+  // Unscoped names have no `%2F`; scoped ones keep only the basename in the
+  // tarball filename (`@scope/pkg` → `pkg-<version>.tgz`).
+  const separator = encodedName.lastIndexOf('%2F')
+  const basename = separator < 0 ? encodedName : encodedName.slice(separator + 3)
+  const tarballUrl = `${registry.base}/${encodedName}/-/${basename}-${encodedVersion}.tgz`
+  const presence = sawVersionAbsent && packageProbe.kind === 'data'
+    ? await probeTarballPresence(tarballUrl)
+    : { kind: 'unknown', error: new Error('the package document is not readable, so absence is unproven') }
+  const latestNote = observed === undefined ? '' : `, latest ${observed}`
+
+  if (presence.kind === 'absent') {
+    warnings.push(
+      `version ${version} is not served by the registry yet after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s: `
+      + `the version document and its tarball (${tarballUrl}) both answer 404 `
+      + `while the package document is live${latestNote}. npm reported the publish as successful because the registry `
+      + 'answered 202 Accepted, which npm treats as success (npm-registry-fetch only fails on >= 400). '
+      + 'This state is AMBIGUOUS: a 202 publish can materialize long after the upload (measured in this repo: 0.4.7 was '
+      + 'still 404 twenty minutes after the publish and was live, with `latest` moved, on a later re-run), and it can '
+      + 'also have been dropped. Re-run this script later — do NOT re-publish while the version is merely unserved; '
+      + 'if it is still absent much later, `npm publish` again (a duplicate of an accepted upload fails with '
+      + 'EPUBLISHCONFLICT, which is the safe outcome).',
+    )
+  } else {
+    warnings.push(
+      `version ${version} is not indexed yet after ~${Math.round((ATTEMPTS * INTERVAL_MS) / 1000)}s`
+      + (packageProbe.kind === 'data'
+        ? ` (the package document is live${latestNote}, and ${presence.kind === 'present'
+          ? 'the version tarball is already served, so the upload landed'
+          : 'the tarball probe was inconclusive'}) — the index is still catching up`
+        : ' (the package document could not be read either — probe failures are not treated as absence)'),
+    )
+  }
+  console.log(`   (version document: 404; tarball ${tarballUrl} → ${presence.kind})`)
 }
 
 // 2. dist-tags are ADVISORY (D11): npm itself refuses to publish a lower
@@ -254,7 +428,7 @@ function curlTarball(url) {
     const result = spawnSync(
       'curl',
       ['-fsS', '-o', body, '-w', '%{http_code}', '--max-time', String(Math.ceil(TARBALL_TIMEOUT_MS / 1000)), url],
-      { maxBuffer: MAX_BUFFER },
+      { maxBuffer: MAX_BUFFER, env: { ...process.env, ...proxyEnv } },
     )
     if (result.error?.code === 'ENOENT' || result.status === 127) return { kind: 'no-curl' }
     const status = Number.parseInt(String(result.stdout ?? '').trim(), 10)
@@ -311,11 +485,25 @@ if (visible) {
   if (typeof tarballUrl !== 'string' || tarballUrl === '') {
     warnings.push('the registry returned no tarball URL — tarball contents were not verified; re-run this script later')
   } else {
-    const download = await obtainTarball(tarballUrl)
+    let download = await obtainTarball(tarballUrl)
+    for (let attempt = 1; attempt <= TARBALL_PROPAGATION_ATTEMPTS
+      && download.kind === 'http' && (download.status === 404 || download.status === 410); attempt += 1) {
+      console.log(`   (tarball not served yet — registry/CDN propagation; retry ${attempt}/${TARBALL_PROPAGATION_ATTEMPTS})`)
+      await sleep(TARBALL_PROPAGATION_INTERVAL_MS)
+      download = await obtainTarball(tarballUrl)
+    }
     const grade = download.kind === 'ok' ? { fatal: false } : gradeDownloadFailure(download)
 
     if (download.kind !== 'ok') {
-      if (grade.fatal) problems.push(`could not verify the published tarball: ${grade.reason}`)
+      const propagating = download.kind === 'http' && (download.status === 404 || download.status === 410)
+      if (propagating) {
+        warnings.push(
+          `the tarball is still not served after ~${Math.round((TARBALL_PROPAGATION_ATTEMPTS * TARBALL_PROPAGATION_INTERVAL_MS) / 1000)}s `
+          + `(HTTP ${download.status}) while version ${version} and dist-tags.latest are visible. `
+          + 'Publication is CONFIRMED; tarball contents were not verified (registry/CDN propagation). '
+          + 'Do NOT re-publish; re-run this check later.',
+        )
+      } else if (grade.fatal) problems.push(`could not verify the published tarball: ${grade.reason}`)
       else warnings.push(`could not verify the published tarball: ${grade.reason} — re-run this script once the network recovers`)
     } else {
       const buffer = download.buffer

@@ -35,6 +35,7 @@ const STEPS = [
   { id: 'typecheck+unit', command: 'tsc --noEmit && node --test tests/*.test.ts' },
   { id: 'guarantees', command: 'node scripts/check-guarantees.mjs' },
   { id: 'controls', command: 'node scripts/test-negative-controls.mjs' },
+  { id: 'fixture:post-publish', command: 'node scripts/test-post-publish.mjs' },
   { id: 'release-check', command: 'node scripts/release-check.mjs', documentedFailure: true },
 ]
 
